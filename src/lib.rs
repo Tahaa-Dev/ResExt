@@ -6,5 +6,5 @@ mod res_ext;
 mod res_ext_methods;
 
 // pub use opt_ext::OptExt;
-pub use ctx::Ctx;
+pub use ctx::{Ctx, CtxChain};
 pub use res_ext::ResExt;

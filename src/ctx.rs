@@ -1,10 +1,13 @@
 use std::{
+    borrow::Cow,
     error::Error,
     fmt::{Debug, Display},
 };
 
+use crate::res_ext_methods::{context::extra_ctx_impl, with_context::extra_with_ctx_impl};
+
 pub struct Ctx<E> {
-    pub msg: &'static str,
+    pub msg: Cow<'static, str>,
     pub source: E,
 }
 
@@ -27,7 +30,30 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
 }
 
 impl<E> Ctx<E> {
-    pub fn new(msg: &'static str, source: E) -> Self {
+    pub fn new(msg: Cow<'static, str>, source: E) -> Self {
         Self { msg, source }
+    }
+}
+
+pub trait CtxChain<T, E> {
+    /// Method for chaining `.context()` without getting nested `Ctx<Ctx<Ctx<E>>>`.
+    fn context(self, msg: &'static str) -> Result<T, Ctx<E>>;
+
+    /// Method for chaining `.with_context()` without getting nested `Ctx<Ctx<Ctx<E>>>`.
+    fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
+    where
+        F: Fn(&E) -> String;
+}
+
+impl<T, E> CtxChain<T, E> for Result<T, Ctx<E>> {
+    fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
+        extra_ctx_impl(self, msg)
+    }
+
+    fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
+    where
+        F: Fn(&E) -> String,
+    {
+        extra_with_ctx_impl(self, closure)
     }
 }
