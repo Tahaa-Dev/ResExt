@@ -7,19 +7,37 @@ use std::{
 use crate::res_ext_methods::{context::extra_ctx_impl, with_context::extra_with_ctx_impl};
 
 pub struct Ctx<E> {
-    pub msg: Cow<'static, str>,
+    pub msg: Vec<Cow<'static, str>>,
     pub source: E,
 }
 
 impl<E: Display> Display for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}: {}", self.msg, self.source)
+        let mut first = true;
+        for msg in &self.msg {
+            if first {
+                write!(f, "{}", msg)?;
+                first = false;
+            } else {
+                write!(f, "\n{}", msg)?;
+            }
+        }
+        write!(f, ": {}", &self.source)
     }
 }
 
 impl<E: Debug + Display> Debug for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}: {:?}", self.msg, self.source)
+        let mut first = true;
+        for msg in &self.msg {
+            if first {
+                write!(f, "{}", msg)?;
+                first = false;
+            } else {
+                write!(f, "\n{}", msg)?;
+            }
+        }
+        write!(f, ": {:?}", &self.source)
     }
 }
 
@@ -30,8 +48,11 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
 }
 
 impl<E> Ctx<E> {
-    pub fn new(msg: Cow<'static, str>, source: E) -> Self {
-        Self { msg, source }
+    pub fn new(source: E) -> Self {
+        Self {
+            msg: Vec::new(),
+            source,
+        }
     }
 }
 
