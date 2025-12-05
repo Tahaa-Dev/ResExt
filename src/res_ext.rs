@@ -25,7 +25,7 @@ pub trait ResExt<T, E> {
     /// Adds context but takes a closure that evaluates to a `&str` instead of a static `&str`.
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> &'static str;
+        F: Fn(&E) -> String;
 
     /// Converts the error into the expected type by the function signature.
     fn map_err_into<E2>(self) -> Result<T, E2>
@@ -58,12 +58,12 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
     }
 
     fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
-        context::context_impl(self, msg)
+        context::new_context_impl(self, msg)
     }
 
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> &'static str,
+        F: Fn(&E) -> String,
     {
         with_context::with_context_impl(self, closure)
     }
