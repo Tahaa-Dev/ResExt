@@ -16,3 +16,21 @@ where
         }
     }
 }
+
+pub(crate) fn dyn_expect_impl<T, E, F>(res: Result<T, E>, closure: F, code: i32, verbose: bool) -> T
+where
+    E: Display,
+    F: FnOnce() -> String,
+{
+    match res {
+        Ok(t) => t,
+        Err(e) if verbose => {
+            eprintln!("{}: {}", closure(), e);
+            exit(code);
+        }
+        Err(_) => {
+            eprintln!("{}", closure());
+            exit(code);
+        }
+    }
+}
