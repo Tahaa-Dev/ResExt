@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     error::Error,
     fmt::{Debug, Display},
 };
@@ -7,8 +6,22 @@ use std::{
 use crate::res_ext_methods::{context::extra_ctx_impl, with_context::extra_with_ctx_impl};
 
 pub struct Ctx<E> {
-    pub msg: Vec<Cow<'static, str>>,
+    pub msg: Vec<CtxMsg>,
     pub source: E,
+}
+
+pub(crate) enum CtxMsg {
+    Static(&'static str),
+    Dynamic(String),
+}
+
+impl Display for CtxMsg {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CtxMsg::Static(s) => write!(f, "{}", s),
+            CtxMsg::Dynamic(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 impl<E: Display> Display for Ctx<E> {
@@ -63,7 +76,7 @@ pub trait CtxChain<T, E> {
     /// Method for chaining `.with_context()` without getting nested `Ctx<Ctx<Ctx<E>>>`.
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> String;
+        F: FnOnce() -> String;
 }
 
 impl<T, E> CtxChain<T, E> for Result<T, Ctx<E>> {
@@ -73,7 +86,7 @@ impl<T, E> CtxChain<T, E> for Result<T, Ctx<E>> {
 
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> String,
+        F: FnOnce() -> String,
     {
         extra_with_ctx_impl(self, closure)
     }

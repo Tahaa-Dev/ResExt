@@ -13,19 +13,30 @@ pub trait ResExt<T, E> {
     where
         E: Display;
 
+    /// Does the same as `better_expect` but takes a closure that evaluates to a something that implements `std::fmt::Display` and `'static` instead of a static `&'static str` for dynamic errors.    
+    fn dyn_expect<F>(self, closure: F, code: i32, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String;
+
     /// Prints a message if error occurs but doesn't panic and instead returns the default value
     /// provided.
     fn or_default_context(self, msg: &str, default: T, verbose: bool) -> T
     where
         E: Display;
 
+    fn with_default_context<F>(self, closure: F, default: T, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String;
+
     /// Adds context to the error.
     fn context(self, msg: &'static str) -> Result<T, Ctx<E>>;
 
-    /// Adds context but takes a closure that evaluates to a `&str` instead of a static `&str`.
+    /// Adds context but takes a closure that evaluates to a something that implements `std::fmt::Display` and `'static` instead of a static `&'static str` for dynamic errors.
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> String;
+        F: FnOnce() -> String;
 
     /// Converts the error into the expected type by the function signature.
     fn map_err_into<E2>(self) -> Result<T, E2>
@@ -36,6 +47,11 @@ pub trait ResExt<T, E> {
     fn to_option_context(self, msg: &'static str, verbose: bool) -> Option<T>
     where
         E: Display;
+
+    fn with_option_context<F>(self, closure: F, verbose: bool) -> Option<T>
+    where
+        E: Display,
+        F: FnOnce() -> String;
 }
 
 impl<T, E> ResExt<T, E> for Result<T, E> {
@@ -50,11 +66,27 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
         better_expect::better_expect_impl(self, msg, code, verbose)
     }
 
+    fn dyn_expect<F>(self, closure: F, code: i32, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        better_expect::dyn_expect_impl(self, closure, code, verbose)
+    }
+
     fn or_default_context(self, msg: &str, default: T, verbose: bool) -> T
     where
         E: Display,
     {
         or_default_context::or_default_context_impl(self, msg, default, verbose)
+    }
+
+    fn with_default_context<F>(self, closure: F, default: T, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        or_default_context::with_default_context_impl(self, closure, default, verbose)
     }
 
     fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
@@ -63,7 +95,7 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
 
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
-        F: Fn(&E) -> String,
+        F: FnOnce() -> String,
     {
         with_context::with_context_impl(self, closure)
     }
@@ -80,5 +112,13 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
         E: Display,
     {
         to_option_context::to_option_context_impl(self, msg, verbose)
+    }
+
+    fn with_option_context<F>(self, closure: F, verbose: bool) -> Option<T>
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        to_option_context::with_option_context_impl(self, closure, verbose)
     }
 }
