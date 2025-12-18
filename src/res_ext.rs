@@ -38,6 +38,8 @@ pub trait ResExt<T, E> {
     where
         F: FnOnce() -> String;
 
+    fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>>;
+
     /// Converts the error into the expected type by the function signature.
     fn map_err_into<E2>(self) -> Result<T, E2>
     where
@@ -120,5 +122,8 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
         F: FnOnce() -> String,
     {
         to_option_context::with_option_context_impl(self, closure, verbose)
+    }
+    fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>> {
+        context::byte_context_impl(self, bytes)
     }
 }
