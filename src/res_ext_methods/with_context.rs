@@ -1,4 +1,4 @@
-use crate::{Ctx, ctx::CtxMsg};
+use crate::Ctx;
 
 pub(crate) fn with_context_impl<T, E, F>(res: Result<T, E>, closure: F) -> Result<T, Ctx<E>>
 where
@@ -8,7 +8,7 @@ where
         Ok(ok) => Ok(ok),
         Err(e) => {
             let mut ctx = Ctx::new(e);
-            ctx.msg.push(CtxMsg::Dynamic(closure()));
+            ctx.msg.extend_from_slice(closure().as_bytes());
             Err(ctx)
         }
     }
@@ -21,7 +21,8 @@ where
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
-            e.msg.push(CtxMsg::Dynamic(closure()));
+            e.msg.push(b'\n');
+            e.msg.extend_from_slice(closure().as_bytes());
             Err(e)
         }
     }
