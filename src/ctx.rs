@@ -3,30 +3,41 @@ use std::{
     fmt::{Debug, Display},
 };
 
+use crate::ResExt;
+use crate::res_ext_methods::*;
+
 pub struct Ctx<E> {
     pub(crate) msg: Vec<u8>,
     pub source: E,
 }
 
-impl<E: Display> Display for Ctx<E> {
+impl<E: Display + Error> Display for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: {}",
-            unsafe { std::str::from_utf8_unchecked(&self.msg) },
-            &self.source
-        )
+        if self.msg.is_empty() {
+            write!(f, "\n{}", &self.source)
+        } else {
+            write!(
+                f,
+                "{}\nCaused by: {}\n",
+                unsafe { std::str::from_utf8_unchecked(&self.msg) },
+                &self.source
+            )
+        }
     }
 }
 
-impl<E: Debug + Display> Debug for Ctx<E> {
+impl<E: Debug + Error> Debug for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: {:?}",
-            unsafe { std::str::from_utf8_unchecked(&self.msg) },
-            &self.source
-        )
+        if self.msg.is_empty() {
+            write!(f, "\n{:?}", &self.source)
+        } else {
+            write!(
+                f,
+                "{}\nCaused by: {:?}\n",
+                unsafe { std::str::from_utf8_unchecked(&self.msg) },
+                &self.source
+            )
+        }
     }
 }
 
@@ -36,51 +47,86 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
     }
 }
 
-impl<E> Ctx<E> {
-    pub fn new(source: E) -> Self {
+impl<E: Error> From<E> for Ctx<E> {
+    fn from(value: E) -> Self {
         Self {
-            msg: Vec::new(),
+            msg: Vec::with_capacity(0),
+            source: value,
+        }
+    }
+}
+
+impl<E: Error> Ctx<E> {
+    pub fn new(source: E, msg: &[u8]) -> Self {
+        Self {
+            msg: msg.to_vec(),
             source,
         }
     }
 }
 
-pub trait CtxChain<T, E: Display> {
-    /// Method for chaining `.context()` without getting nested `Ctx<Ctx<Ctx<E>>>`.
-    fn context(self, msg: &'static str) -> Result<T, Ctx<E>>;
+impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
+    fn or_exit(self, code: i32) -> T {
+        or_exit::or_exit_impl(self, code)
+    }
 
-    /// Method for chaining `.with_context()` without getting nested `Ctx<Ctx<Ctx<E>>>`.
-    fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
+    fn better_expect(self, msg: &str, code: i32, verbose: bool) -> T
     where
-        F: FnOnce() -> String;
+        E: Display,
+    {
+        better_expect::better_expect_impl(self, msg, code, verbose)
+    }
 
-    /// Method for automatically mapping the type for `E` into the usually inferred type to
-    /// make `Ctx<E>` more ergonomic because of no `?` propagation for performance.
-    fn map_err_into<E2: From<E>>(self) -> Result<T, Ctx<E2>>;
+    fn dyn_expect<F>(self, closure: F, code: i32, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        better_expect::dyn_expect_impl(self, closure, code, verbose)
+    }
 
-    fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>>;
-}
+    fn or_default_context(self, msg: &str, default: T, verbose: bool) -> T
+    where
+        E: Display,
+    {
+        or_default_context::or_default_context_impl(self, msg, default, verbose)
+    }
 
-impl<T, E: Display> CtxChain<T, E> for Result<T, Ctx<E>> {
+    fn with_default_context<F>(self, closure: F, default: T, verbose: bool) -> T
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        or_default_context::with_default_context_impl(self, closure, default, verbose)
+    }
+
     fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
-        crate::res_ext_methods::context::extra_ctx_impl(self, msg)
+        context::extra_ctx_impl(self, msg)
     }
 
     fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
     where
         F: FnOnce() -> String,
     {
-        crate::res_ext_methods::with_context::extra_with_ctx_impl(self, closure)
+        with_context::extra_with_ctx_impl(self, closure)
     }
 
-    fn map_err_into<E2: From<E>>(self) -> Result<T, Ctx<E2>> {
-        self.map_err(|e| Ctx {
-            msg: e.msg,
-            source: e.source.into(),
-        })
+    fn to_option_context(self, msg: &'static str, verbose: bool) -> Option<T>
+    where
+        E: Display,
+    {
+        to_option_context::to_option_context_impl(self, msg, verbose)
+    }
+
+    fn with_option_context<F>(self, closure: F, verbose: bool) -> Option<T>
+    where
+        E: Display,
+        F: FnOnce() -> String,
+    {
+        to_option_context::with_option_context_impl(self, closure, verbose)
     }
 
     fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>> {
-        crate::res_ext_methods::context::extra_byte_context_impl(self, bytes)
+        context::extra_byte_context_impl(self, bytes)
     }
 }
