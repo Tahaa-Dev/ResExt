@@ -1,4 +1,4 @@
-use crate::Ctx;
+use crate::ctx::Ctx;
 
 pub(crate) fn new_context_impl<T, E>(res: Result<T, E>, msg: &'static str) -> Result<T, Ctx<E>> {
     match res {
@@ -14,7 +14,7 @@ pub(crate) fn extra_ctx_impl<T, E>(res: Result<T, Ctx<E>>, msg: &'static str) ->
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
-            e.msg.push(b'\n');
+            e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(msg.as_bytes());
             Err(e)
         }
@@ -38,7 +38,7 @@ pub(crate) fn extra_byte_context_impl<T, E>(
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
-            e.msg.push(b'\n');
+            e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(bytes);
             Err(e)
         }

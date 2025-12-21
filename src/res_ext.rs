@@ -1,9 +1,10 @@
+use std::error::Error;
 use std::fmt::Display;
 
-use crate::Ctx;
+use crate::ctx::Ctx;
 use crate::res_ext_methods::*;
 
-pub trait ResExt<T, E> {
+pub trait ResExt<T, E: Error> {
     /// Similar to `.unwrap()` but exits without printing anything.
     fn or_exit(self, code: i32) -> T;
 
@@ -25,6 +26,8 @@ pub trait ResExt<T, E> {
     where
         E: Display;
 
+    /// Does the same as `.or_default_context()` but uses dynamic error messages by taking a
+    /// `FnOnce() -> String` instead of a static `&'static str`.
     fn with_default_context<F>(self, closure: F, default: T, verbose: bool) -> T
     where
         E: Display,
@@ -38,25 +41,23 @@ pub trait ResExt<T, E> {
     where
         F: FnOnce() -> String;
 
+    /// Works the same as `.context()` but takes a `&[u8]` of raw bytes for the message.
     fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>>;
-
-    /// Converts the error into the expected type by the function signature.
-    fn map_err_into<E2>(self) -> Result<T, E2>
-    where
-        E: Into<E2>;
 
     /// Does the same as `.ok()` exposed by std but prints a context message without panicking if value is `Err(E)`.
     fn to_option_context(self, msg: &'static str, verbose: bool) -> Option<T>
     where
         E: Display;
 
+    /// Works like `.to_option_context()` but takes a `FnOnce() -> String` instead of a static
+    /// `&'static str` for dynamic messages.
     fn with_option_context<F>(self, closure: F, verbose: bool) -> Option<T>
     where
         E: Display,
         F: FnOnce() -> String;
 }
 
-impl<T, E> ResExt<T, E> for Result<T, E> {
+impl<T, E: Error> ResExt<T, E> for Result<T, E> {
     fn or_exit(self, code: i32) -> T {
         or_exit::or_exit_impl(self, code)
     }
@@ -102,13 +103,6 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
         with_context::with_context_impl(self, closure)
     }
 
-    fn map_err_into<E2>(self) -> Result<T, E2>
-    where
-        E: Into<E2>,
-    {
-        map_err_into::map_err_into_impl(self)
-    }
-
     fn to_option_context(self, msg: &'static str, verbose: bool) -> Option<T>
     where
         E: Display,
@@ -123,6 +117,7 @@ impl<T, E> ResExt<T, E> for Result<T, E> {
     {
         to_option_context::with_option_context_impl(self, closure, verbose)
     }
+
     fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>> {
         context::byte_context_impl(self, bytes)
     }
