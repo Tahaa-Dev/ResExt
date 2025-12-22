@@ -6,7 +6,7 @@ use std::{
 use crate::ResExt;
 use crate::res_ext_methods::*;
 
-pub struct Ctx<E> {
+pub struct Ctx<E: Error> {
     pub(crate) msg: Vec<u8>,
     pub source: E,
 }
@@ -55,6 +55,9 @@ impl<E: Error> From<E> for Ctx<E> {
         }
     }
 }
+
+unsafe impl<E: Error> Send for Ctx<E> {}
+unsafe impl<E: Error> Sync for Ctx<E> {}
 
 impl<E: Error> Ctx<E> {
     pub fn new(source: E, msg: &[u8]) -> Self {
