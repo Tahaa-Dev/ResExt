@@ -1,6 +1,8 @@
+use std::error::Error;
+
 use crate::ctx::Ctx;
 
-pub(crate) fn with_context_impl<T, E, F>(res: Result<T, E>, closure: F) -> Result<T, Ctx<E>>
+pub(crate) fn with_context_impl<T, E: Error, F>(res: Result<T, E>, closure: F) -> Result<T, Ctx<E>>
 where
     F: FnOnce() -> String,
 {
@@ -13,7 +15,10 @@ where
     }
 }
 
-pub(crate) fn extra_with_ctx_impl<T, E, F>(res: Result<T, Ctx<E>>, closure: F) -> Result<T, Ctx<E>>
+pub(crate) fn extra_with_ctx_impl<T, E: Error, F>(
+    res: Result<T, Ctx<E>>,
+    closure: F,
+) -> Result<T, Ctx<E>>
 where
     F: FnOnce() -> String,
 {

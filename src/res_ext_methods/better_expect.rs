@@ -7,7 +7,7 @@ where
     match res {
         Ok(t) => t,
         Err(e) if verbose => {
-            eprintln!("{}: {}", msg, e);
+            eprintln!("{}\nCaused by: {}", msg, e);
             exit(code);
         }
         Err(_) => {
@@ -25,7 +25,7 @@ where
     match res {
         Ok(t) => t,
         Err(e) if verbose => {
-            eprintln!("{}: {}", closure(), e);
+            eprintln!("{}\nCaused by: {}", closure(), e);
             exit(code);
         }
         Err(_) => {
