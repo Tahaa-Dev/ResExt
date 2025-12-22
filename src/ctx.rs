@@ -85,21 +85,6 @@ impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
         better_expect::dyn_expect_impl(self, closure, code, verbose)
     }
 
-    fn or_default_context(self, msg: &str, default: T, verbose: bool) -> T
-    where
-        E: Display,
-    {
-        or_default_context::or_default_context_impl(self, msg, default, verbose)
-    }
-
-    fn with_default_context<F>(self, closure: F, default: T, verbose: bool) -> T
-    where
-        E: Display,
-        F: FnOnce() -> String,
-    {
-        or_default_context::with_default_context_impl(self, closure, default, verbose)
-    }
-
     fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
         context::extra_ctx_impl(self, msg)
     }
@@ -109,21 +94,6 @@ impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
         F: FnOnce() -> String,
     {
         with_context::extra_with_ctx_impl(self, closure)
-    }
-
-    fn to_option_context(self, msg: &'static str, verbose: bool) -> Option<T>
-    where
-        E: Display,
-    {
-        to_option_context::to_option_context_impl(self, msg, verbose)
-    }
-
-    fn with_option_context<F>(self, closure: F, verbose: bool) -> Option<T>
-    where
-        E: Display,
-        F: FnOnce() -> String,
-    {
-        to_option_context::with_option_context_impl(self, closure, verbose)
     }
 
     fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>> {
