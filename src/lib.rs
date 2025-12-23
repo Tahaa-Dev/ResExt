@@ -1,13 +1,10 @@
 mod ctx;
-mod opt_ext;
 mod res_ext;
 
-// mod opt_ext_methods;
 mod res_ext_methods;
 
 use std::process::exit;
 
-// pub use opt_ext::OptExt;
 pub use res_ext::ResExt;
 
 pub use error::Ctx as ErrCtx;

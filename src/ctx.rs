@@ -8,13 +8,13 @@ use crate::res_ext_methods::*;
 
 pub struct Ctx<E: Error> {
     pub(crate) msg: Vec<u8>,
-    pub source: E,
+    pub(crate) source: E,
 }
 
 impl<E: Display + Error> Display for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.msg.is_empty() {
-            write!(f, "\n{}", &self.source)
+            write!(f, "{}", &self.source)
         } else {
             write!(
                 f,
@@ -29,7 +29,7 @@ impl<E: Display + Error> Display for Ctx<E> {
 impl<E: Debug + Error> Debug for Ctx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.msg.is_empty() {
-            write!(f, "\n{:?}", &self.source)
+            write!(f, "{:?}", &self.source)
         } else {
             write!(
                 f,
@@ -45,6 +45,14 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(&self.source)
     }
+
+    fn description(&self) -> &str {
+        "Context for error"
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        Some(&self.source)
+    }
 }
 
 impl<E: Error> From<E> for Ctx<E> {
@@ -56,9 +64,6 @@ impl<E: Error> From<E> for Ctx<E> {
     }
 }
 
-unsafe impl<E: Error> Send for Ctx<E> {}
-unsafe impl<E: Error> Sync for Ctx<E> {}
-
 impl<E: Error> Ctx<E> {
     pub fn new(source: E, msg: &[u8]) -> Self {
         Self {
@@ -66,7 +71,14 @@ impl<E: Error> Ctx<E> {
             source,
         }
     }
+
+    pub fn msg(&self) -> String {
+        unsafe { std::string::String::from_utf8_unchecked(self.msg.to_vec()) }
+    }
 }
+
+unsafe impl<E: Error> Sync for Ctx<E> {}
+unsafe impl<E: Error> Send for Ctx<E> {}
 
 impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
     fn or_exit(self, code: i32) -> T {
