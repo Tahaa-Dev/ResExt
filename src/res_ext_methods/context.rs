@@ -22,8 +22,10 @@ pub(crate) fn extra_ctx_impl<T, E: Error>(
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
+            let bytes = msg.as_bytes();
+            e.msg.reserve_exact(3 + bytes.len());
             e.msg.extend_from_slice(b"\n- ");
-            e.msg.extend_from_slice(msg.as_bytes());
+            e.msg.extend_from_slice(bytes);
             Err(e)
         }
     }
@@ -46,6 +48,7 @@ pub(crate) fn extra_byte_context_impl<T, E: Error>(
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
+            e.msg.reserve_exact(3 + bytes.len());
             e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(bytes);
             Err(e)

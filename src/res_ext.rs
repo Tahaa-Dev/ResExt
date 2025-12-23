@@ -5,7 +5,7 @@ use crate::ctx::Ctx;
 use crate::res_ext_methods::*;
 
 pub trait ResExt<T, E: Error> {
-    /// Similar to `.unwrap()` but exits without printing anything.
+    /// Similar to `.unwrap()` but exits without printing anything to stderr or stdout.
     fn or_exit(self, code: i32) -> T;
 
     /// Prints an error messge and exits with the provided code if an error occurs, returns the

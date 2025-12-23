@@ -25,8 +25,11 @@ where
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
+            let string = closure();
+            let bytes = string.as_bytes();
+            e.msg.reserve_exact(3 + bytes.len());
             e.msg.extend_from_slice(b"\n- ");
-            e.msg.extend_from_slice(closure().as_bytes());
+            e.msg.extend_from_slice(bytes);
             Err(e)
         }
     }
