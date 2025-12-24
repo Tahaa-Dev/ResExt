@@ -1,6 +1,12 @@
 [package]
 name = "resext"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
+authors = ["Taha Mahmoud (TahaaDev) <tahamahmoud7097@gmail.com>"]
+categories = ["rust-patterns", "error-handling"]
+description = "A simple, lightweight error handling crate for Rust with no-std support coming soon"
+keywords = ["error", "error-handling"]
+license = "MIT"
+repository = "https://github.com/Tahaa-Dev/ResExt"
 
 [dependencies]

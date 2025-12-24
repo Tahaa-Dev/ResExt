@@ -1,4 +1,4 @@
-use std::error::Error;
+use core::error::Error;
 
 use crate::ctx::Ctx;
 
@@ -8,10 +8,7 @@ where
 {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx {
-            msg: closure().as_bytes().to_vec(),
-            source: e,
-        }),
+        Err(e) => Err(Ctx { msg: closure().as_bytes().to_vec(), source: e }),
     }
 }
 
@@ -25,9 +22,13 @@ where
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
-            let string = closure();
-            let bytes = string.as_bytes();
-            e.msg.reserve_exact(3 + bytes.len());
+            let s = closure();
+            let bytes = s.as_bytes();
+            let len = bytes.len();
+            let cap = e.msg.capacity();
+            if cap <= 3 + len {
+                e.msg.reserve_exact(3 + len - cap);
+            }
             e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(bytes);
             Err(e)
