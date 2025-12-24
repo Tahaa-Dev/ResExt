@@ -1,7 +1,5 @@
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-};
+use core::error::Error;
+use std::fmt::{Debug, Display};
 
 use crate::ResExt;
 use crate::res_ext_methods::*;
@@ -57,19 +55,13 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
 
 impl<E: Error> From<E> for Ctx<E> {
     fn from(value: E) -> Self {
-        Self {
-            msg: Vec::with_capacity(0),
-            source: value,
-        }
+        Self { msg: Vec::with_capacity(0), source: value }
     }
 }
 
 impl<E: Error> Ctx<E> {
     pub fn new(source: E, msg: &[u8]) -> Self {
-        Self {
-            msg: msg.to_vec(),
-            source,
-        }
+        Self { msg: msg.to_vec(), source }
     }
 
     pub fn msg(&self) -> String {

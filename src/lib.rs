@@ -25,6 +25,9 @@ pub fn throw_err_if<C: FnOnce() -> bool>(condition: C, msg: &'static str, code: 
     }
 }
 
+/// Takes a `condition` which is a closure that evaluates to a `bool` (`FnOnce() -> bool`) and if it returns true, it
+/// prints the return value of `closure` which is a closure that returns a `String` (`FnOnce() -> String`) to
+/// stderr and exits with provided code.
 pub fn dyn_error_if<F: FnOnce() -> String, C: FnOnce() -> bool>(
     condition: C,
     closure: F,

@@ -5,10 +5,7 @@ fn test_core() -> CtxResult<(), std::io::Error> {
     let error: Result<&str, std::io::Error> = Err(std::io::Error::other("I/O Failed"));
 
     let ctx = ErrCtx::new(
-        std::io::Error::new(
-            std::io::ErrorKind::HostUnreachable,
-            "Host refused to connect",
-        ),
+        std::io::Error::new(std::io::ErrorKind::HostUnreachable, "Host refused to connect"),
         b"Failed to send request".as_slice(),
     );
     println!("{}\n", ctx);
@@ -66,4 +63,21 @@ fn test_methods() {
         },
         1,
     );
+}
+
+#[test]
+fn test_long_context_chain() {
+    let result: Result<(), _> = Err(std::io::Error::other("root"));
+    let ctx = result
+        .context("first")
+        .context("second")
+        .context("third")
+        .context("fourth")
+        .context("fifth")
+        .unwrap_err();
+
+    let msg = ctx.msg();
+    assert!(msg.contains("first"));
+    assert!(msg.contains("fifth"));
+    assert_eq!(msg.matches("\n- ").count(), 4); // 4 delimiters for 5 messages
 }

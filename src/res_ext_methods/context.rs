@@ -1,4 +1,4 @@
-use std::error::Error;
+use core::error::Error;
 
 use crate::ctx::Ctx;
 
@@ -8,10 +8,7 @@ pub(crate) fn new_context_impl<T, E: Error>(
 ) -> Result<T, Ctx<E>> {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx {
-            msg: msg.as_bytes().to_vec(),
-            source: e,
-        }),
+        Err(e) => Err(Ctx { msg: msg.as_bytes().to_vec(), source: e }),
     }
 }
 
@@ -23,7 +20,11 @@ pub(crate) fn extra_ctx_impl<T, E: Error>(
         Ok(ok) => Ok(ok),
         Err(mut e) => {
             let bytes = msg.as_bytes();
-            e.msg.reserve_exact(3 + bytes.len());
+            let len = bytes.len();
+            let cap = e.msg.capacity();
+            if cap <= 3 + len {
+                e.msg.reserve_exact(3 + len - cap);
+            }
             e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(bytes);
             Err(e)
@@ -34,10 +35,7 @@ pub(crate) fn extra_ctx_impl<T, E: Error>(
 pub(crate) fn byte_context_impl<T, E: Error>(res: Result<T, E>, bytes: &[u8]) -> Result<T, Ctx<E>> {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx {
-            msg: bytes.to_vec(),
-            source: e,
-        }),
+        Err(e) => Err(Ctx { msg: bytes.to_vec(), source: e }),
     }
 }
 
@@ -48,7 +46,11 @@ pub(crate) fn extra_byte_context_impl<T, E: Error>(
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
-            e.msg.reserve_exact(3 + bytes.len());
+            let len = bytes.len();
+            let cap = e.msg.capacity();
+            if cap <= 3 + len {
+                e.msg.reserve_exact(3 + len - cap);
+            }
             e.msg.extend_from_slice(b"\n- ");
             e.msg.extend_from_slice(bytes);
             Err(e)
