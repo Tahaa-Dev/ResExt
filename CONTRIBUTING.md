@@ -29,8 +29,8 @@ Thanks for your interest in contributing!
 
 ### Commit Messages
 
-- Be descriptive: "Add YAML support" not "Update code"
-- Reference issues: "Fix #123: Handle empty files"
+- Be descriptive: "Add new method for..." not "Update code"
+- Reference issues: "Fix #123: Handle empty context messages"
 
 ---
 

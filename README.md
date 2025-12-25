@@ -111,10 +111,10 @@ Caused by: NotFound
 Failed to deserialize TOML
 - Error in file: foo.toml
 Caused by: InvalidInput
+```
 
 ---
 
-```
 ### Important notes
 
 - ResExt is still in development and isn't stable, wait for v0.5.0 at least to use it.
