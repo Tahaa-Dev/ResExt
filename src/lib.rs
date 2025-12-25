@@ -3,38 +3,44 @@ mod res_ext;
 
 mod res_ext_methods;
 
-use std::process::exit;
-
 pub use res_ext::ResExt;
 
-pub use error::Ctx as ErrCtx;
-pub use error::CtxResult;
+pub use crate::ctx::Ctx as ErrCtx;
 
-/// Module for custom error types defined by ResExt.
-mod error {
-    pub use crate::ctx::Ctx;
-    pub type CtxResult<T, E> = std::result::Result<T, Ctx<E>>;
-}
+pub type CtxResult<T, E> = std::result::Result<T, ErrCtx<E>>;
 
-/// Takes a `condition` which is a closure that evaluates to a `bool` (`FnOnce() -> bool`) and if it returns true, it
-/// prints an error message to stderr and exits with provided code.
-pub fn throw_err_if<C: FnOnce() -> bool>(condition: C, msg: &'static str, code: i32) {
-    if condition() {
-        eprintln!("{}", msg);
-        exit(code);
-    }
-}
+/// Throw an error if `condition` is true.
+///
+/// Accepts either a static message which only needs to implement `std::fmt::Display` or a dynamic closure `FnOnce() -> T where T: std::fmt::Display`
+///
+/// ## Examples
+/// ```
+/// use resext::throw_err_if;
+///
+/// fn main() {
+///     let x = 5;
+///     // Static
+///     throw_err_if!(x > 10, "x is too big", 1);
+///     // Dynamic
+///     throw_err_if!(x > 10, || format!("x={} is too big", x), 1);
+/// }
+/// ```
+/// ## Internals
+///
+/// Uses `eprintln!("{}", msg)` to print the message then exits with `std::process::exit(code)`.
+#[macro_export]
+macro_rules! throw_err_if {
+    ($condition:expr, || $msg:expr, $code:expr) => {
+        if $condition {
+            eprintln!("{}", $msg);
+            std::process::exit($code);
+        }
+    };
 
-/// Takes a `condition` which is a closure that evaluates to a `bool` (`FnOnce() -> bool`) and if it returns true, it
-/// prints the return value of `closure` which is a closure that returns a `String` (`FnOnce() -> String`) to
-/// stderr and exits with provided code.
-pub fn dyn_error_if<F: FnOnce() -> String, C: FnOnce() -> bool>(
-    condition: C,
-    closure: F,
-    code: i32,
-) {
-    if condition() {
-        eprintln!("{}", closure());
-        exit(code);
-    }
+    ($condition:expr, $msg:expr, $code:expr) => {
+        if $condition {
+            eprintln!("{}", $msg);
+            std::process::exit($code);
+        }
+    };
 }
