@@ -52,23 +52,21 @@ fn test_methods() {
     let value = res.or_exit(1);
     let value2 = res2.better_expect("Failed to unwrap Result.", 1, true);
 
-    throw_err_if(|| value.to_string() == value2, "Values aren't unique", 1);
-    dyn_error_if(
-        || value != 20,
-        || {
-            format!(
-                "Value didn't unwrap correctly, it unwrapped into [`{}`] instead of [`20`]",
-                value
-            )
-        },
-        1,
+    throw_err_if!(value.to_string() == value2, "Values aren't unique", 1);
+    throw_err_if!(
+        value != 20,
+        || format!(
+            "Value didn't unwrap correctly, it unwrapped into [`{}`] instead of [`20`]",
+            value
+        ),
+        1
     );
 }
 
 #[test]
 fn test_long_context_chain() {
-    let result: Result<(), _> = Err(std::io::Error::other("root"));
-    let ctx = result
+    let result: Result<(), std::io::Error> = Err(std::io::Error::other("root"));
+    let ctx: ErrCtx<std::io::Error> = result
         .context("first")
         .context("second")
         .context("third")
