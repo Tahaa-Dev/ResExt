@@ -6,14 +6,14 @@ fn test_core() -> CtxResult<(), std::io::Error> {
 
     let ctx = ErrCtx::new(
         std::io::Error::new(std::io::ErrorKind::HostUnreachable, "Host refused to connect"),
-        b"Failed to send request".as_slice(),
+        b"Failed to send request".to_vec(),
     );
     println!("{}\n", ctx);
     println!("{:?}\n", ctx);
 
     let ctx: CtxResult<&str, std::io::Error> = error
         .context("Failed to do I/O work.")
-        .byte_context(b"Failed to read file.".as_slice())
+        .byte_context(b"Failed to read file.".to_vec())
         .with_context(|| format!("File [{}] failed to open.", "foo.txt"));
 
     let ctx_err = ctx.as_ref().unwrap_err();
@@ -38,7 +38,7 @@ fn test_core() -> CtxResult<(), std::io::Error> {
 fn test_empty_ctx() {
     let ctx = ErrCtx::new(
         std::io::Error::other("error"),
-        b"".as_slice(), // Empty context
+        b"".to_vec(), // Empty context
     );
     let output = format!("{}", ctx);
     assert!(!output.contains("\n- "));

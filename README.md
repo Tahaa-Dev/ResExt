@@ -82,17 +82,21 @@ use resext::throw_err_if;
 ```rust
 use resext::*;
 use std::io::{Error, ErrorKind};
+use toml::Value;
 
-fn load_config() -> CtxResult<Config, Error> {
+fn load_config() -> CtxResult<Value, Error> {
+    let path = "config.toml";
     // Read file with context
-    let content = std::fs::read_to_string("foo.toml")
+    let content = std::fs::read_to_string(path)
         .context("Failed to read config file")?;
 
     // Parse with chained context
-    let config: Config = toml::from_str(&content)
+    let config: Value = toml::from_str(&content)
         .map_err(|e| Error::new(ErrorKind::InvalidInput, "Invalid TOML in input file"))
         .context("Failed to deserialize TOML")
-        .with_context(|| format!("Error in file: {}", "foo.toml"))?;
+        .with_context(|| format!("Error in file: {}", path))?;
+
+    throw_err_if!(config.is_array(), || format!("Invalid input for config in file: {}.\n Config cannot be an array."), 1);
 
     Ok(config)
 }
@@ -109,7 +113,7 @@ Caused by: NotFound
 
 ```
 Failed to deserialize TOML
-- Error in file: foo.toml
+- Error in file: config.toml
 Caused by: InvalidInput
 ```
 
