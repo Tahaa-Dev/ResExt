@@ -1,21 +1,21 @@
 use core::error::Error;
 
-use crate::ctx::Ctx;
+use crate::ctx::ErrCtx;
 
 pub(crate) fn new_context_impl<T, E: Error>(
     res: Result<T, E>,
     msg: &'static str,
-) -> Result<T, Ctx<E>> {
+) -> Result<T, ErrCtx<E>> {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx { msg: msg.as_bytes().to_vec(), source: e }),
+        Err(e) => Err(ErrCtx { msg: msg.as_bytes().to_vec(), source: e }),
     }
 }
 
 pub(crate) fn extra_ctx_impl<T, E: Error>(
-    res: Result<T, Ctx<E>>,
+    res: Result<T, ErrCtx<E>>,
     msg: &'static str,
-) -> Result<T, Ctx<E>> {
+) -> Result<T, ErrCtx<E>> {
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {
@@ -32,17 +32,20 @@ pub(crate) fn extra_ctx_impl<T, E: Error>(
     }
 }
 
-pub(crate) fn byte_context_impl<T, E: Error>(res: Result<T, E>, bytes: &[u8]) -> Result<T, Ctx<E>> {
+pub(crate) fn byte_context_impl<T, E: Error>(
+    res: Result<T, E>,
+    mut bytes: Vec<u8>,
+) -> Result<T, ErrCtx<E>> {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx { msg: bytes.to_vec(), source: e }),
+        Err(e) => Err(ErrCtx { msg: std::mem::take(&mut bytes), source: e }),
     }
 }
 
 pub(crate) fn extra_byte_context_impl<T, E: Error>(
-    res: Result<T, Ctx<E>>,
+    res: Result<T, ErrCtx<E>>,
     bytes: &[u8],
-) -> Result<T, Ctx<E>> {
+) -> Result<T, ErrCtx<E>> {
     match res {
         Ok(ok) => Ok(ok),
         Err(mut e) => {

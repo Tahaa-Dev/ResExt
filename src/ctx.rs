@@ -4,12 +4,20 @@ use std::fmt::{Debug, Display};
 use crate::ResExt;
 use crate::res_ext_methods::*;
 
-pub struct Ctx<E: Error> {
-    pub(crate) msg: Vec<u8>,
-    pub(crate) source: E,
+/// Custom error struct `ErrCtx`.
+///
+/// Stores two fields, a `msg: Vec<u8>` field which stores the context messages as raw bytes for
+/// less memory usage, and `source: E` where `E: std::error::Error` for the lower-level source of
+/// the error.
+///
+/// The `Vec<u8>` for messages will be optimized even further in nexy versions to use `smallvec` or
+/// a similar crate for zero-alloc small contexts while longer ones stay alloc.
+pub struct ErrCtx<E: Error> {
+    pub msg: Vec<u8>,
+    pub source: E,
 }
 
-impl<E: Display + Error> Display for Ctx<E> {
+impl<E: Display + Error> Display for ErrCtx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.msg.is_empty() {
             write!(f, "{}", &self.source)
@@ -24,7 +32,7 @@ impl<E: Display + Error> Display for Ctx<E> {
     }
 }
 
-impl<E: Debug + Error> Debug for Ctx<E> {
+impl<E: Debug + Error> Debug for ErrCtx<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.msg.is_empty() {
             write!(f, "{:?}", &self.source)
@@ -39,7 +47,7 @@ impl<E: Debug + Error> Debug for Ctx<E> {
     }
 }
 
-impl<E: Display + Error + 'static> Error for Ctx<E> {
+impl<E: Display + Error + 'static> Error for ErrCtx<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(&self.source)
     }
@@ -53,26 +61,30 @@ impl<E: Display + Error + 'static> Error for Ctx<E> {
     }
 }
 
-impl<E: Error> From<E> for Ctx<E> {
+impl<E: Error> From<E> for ErrCtx<E> {
     fn from(value: E) -> Self {
         Self { msg: Vec::with_capacity(0), source: value }
     }
 }
 
-impl<E: Error> Ctx<E> {
-    pub fn new(source: E, msg: &[u8]) -> Self {
-        Self { msg: msg.to_vec(), source }
+impl<E: Error> ErrCtx<E> {
+    /// Function for constructing a new `ErrCtx<E>` struct from a raw source error and a `Vec<u8>`
+    /// of bytes that gets consumed in the function.
+    pub fn new(source: E, mut msg: Vec<u8>) -> Self {
+        Self { msg: std::mem::take(&mut msg), source }
     }
 
-    pub fn msg(&self) -> String {
-        unsafe { std::string::String::from_utf8_unchecked(self.msg.to_vec()) }
+    /// Method for getting the messages in a `ErrCtx<E>` struct in `&str` format instead of raw
+    /// accessing the `Vec<u8>`.
+    pub fn msg(&self) -> &str {
+        unsafe { std::str::from_utf8_unchecked(self.msg.as_slice()) }
     }
 }
 
-unsafe impl<E: Error> Sync for Ctx<E> {}
-unsafe impl<E: Error> Send for Ctx<E> {}
+unsafe impl<E: Error> Sync for ErrCtx<E> {}
+unsafe impl<E: Error> Send for ErrCtx<E> {}
 
-impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
+impl<T, E: Error> ResExt<T, E> for Result<T, ErrCtx<E>> {
     fn or_exit(self, code: i32) -> T {
         or_exit::or_exit_impl(self, code)
     }
@@ -92,18 +104,18 @@ impl<T, E: Error> ResExt<T, E> for Result<T, Ctx<E>> {
         better_expect::dyn_expect_impl(self, closure, code, verbose)
     }
 
-    fn context(self, msg: &'static str) -> Result<T, Ctx<E>> {
+    fn context(self, msg: &'static str) -> Result<T, ErrCtx<E>> {
         context::extra_ctx_impl(self, msg)
     }
 
-    fn with_context<F>(self, closure: F) -> Result<T, Ctx<E>>
+    fn with_context<F>(self, closure: F) -> Result<T, ErrCtx<E>>
     where
         F: FnOnce() -> String,
     {
         with_context::extra_with_ctx_impl(self, closure)
     }
 
-    fn byte_context(self, bytes: &[u8]) -> Result<T, Ctx<E>> {
-        context::extra_byte_context_impl(self, bytes)
+    fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>> {
+        context::extra_byte_context_impl(self, bytes.as_slice())
     }
 }

@@ -1,21 +1,24 @@
 use core::error::Error;
 
-use crate::ctx::Ctx;
+use crate::ctx::ErrCtx;
 
-pub(crate) fn with_context_impl<T, E: Error, F>(res: Result<T, E>, closure: F) -> Result<T, Ctx<E>>
+pub(crate) fn with_context_impl<T, E: Error, F>(
+    res: Result<T, E>,
+    closure: F,
+) -> Result<T, ErrCtx<E>>
 where
     F: FnOnce() -> String,
 {
     match res {
         Ok(ok) => Ok(ok),
-        Err(e) => Err(Ctx { msg: closure().as_bytes().to_vec(), source: e }),
+        Err(e) => Err(ErrCtx { msg: closure().as_bytes().to_vec(), source: e }),
     }
 }
 
 pub(crate) fn extra_with_ctx_impl<T, E: Error, F>(
-    res: Result<T, Ctx<E>>,
+    res: Result<T, ErrCtx<E>>,
     closure: F,
-) -> Result<T, Ctx<E>>
+) -> Result<T, ErrCtx<E>>
 where
     F: FnOnce() -> String,
 {
