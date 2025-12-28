@@ -132,5 +132,5 @@ Caused by: InvalidInput
 - ResExt is still in development and isn't stable, wait for v1.0.0 to rely on it for production code.
 - ResExt is licensed under the **MIT** license.
 - ResExt doesn't have ergonomics as good as anyhow's, as ResExt is meant for highly optimized, low-level production code, not ergonomics in exchange for performance.
-- For contribution details, see <a href="CONTRIBUTING.md"/>.
-- For the changelog, see <a href="CHANGELOG.md"/>.
+- For contribution details, see <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.
+- For the changelog, see <a href="CHANGELOG.md">CHANGELOG.md</a>.
