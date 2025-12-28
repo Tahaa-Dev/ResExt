@@ -67,7 +67,7 @@ impl<E: Error> From<E> for ErrCtx<E> {
     }
 }
 
-impl<E: Error> ErrCtx<E> {
+impl<E: Error + Send + Sync + 'static> ErrCtx<E> {
     /// Function for constructing a new `ErrCtx<E>` struct from a raw source error and a `Vec<u8>`
     /// of bytes that gets consumed in the function.
     pub fn new(source: E, mut msg: Vec<u8>) -> Self {

@@ -1,8 +1,14 @@
-## ResExt
+<h1 style="text-align: center;">ResExt</h1>
+<div style="display:flex; justify-content:center;"><div style="width:40%; background-color:#5e5e5e; height:2px; border-radius:1px"/></div>
+
+[<img alt="crates.io" src="https://img.shields.io/crates/v/resext.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/resext)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-resext-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/resext)
+
+<div style="display:flex; justify-content:center"><div style="width:90%; height:2px;background-color:#5e5e5e; border-radius:1px;"/></div>
 
 ***Simple, lightweight, low-alloc\* error handling crate for Rust.***
 
- ResExt provides ergonomic methods for `Result<T, E>` without the overhead of type erasure or boxing. Add context to errors, handle failures gracefully, and maintain zero-allocation paths for static messages.
+ResExt provides ergonomic methods for `Result<T, E>` without the overhead of type erasure or boxing. Add context to errors, handle failures gracefully, and maintain zero-allocation paths for static messages.
 
 \*Context chaining uses a single `Vec<u8>` allocation which will be optimized to be zero-alloc in later versions.
 
@@ -18,18 +24,20 @@ Compare to `anyhow`: boxes every error
 
 ---
 
-### Overview of ResExt: Why should I use it?
+## Overview of ResExt: Why should I use it?
 
 There are a few design choices and highlights of ResExt that give it an advantage over `anyhow` and similar error handling crates, some of those being:
 
 - **Zero allocation by default:** Static context uses `&'static str`, no heap allocation by default.
-- **No custom error types:** Works with any `Result<T, E>` and has methods to convert to other context types, fully compatible with existing code.
+- **No custom error types:** Works with any `Result<T, E>` and has methods to get the raw source of errors, fully compatible with old code.
 - **Minimal bloat:** Zero dependencies, tiny compile times.
 - **No type erasure:** Keep your error types concrete when you need them.
 - **Pay only for what you use:** All methods that allocate are documented for their exact cost, and every one of them only allocates once.
 - **No-std support coming:** Once main crate stabilizes.
 
-### Quick Comparison
+---
+
+## Quick Comparison
 
 | Feature                   | `anyhow`              | `resext`                                          |
 | ------------------------- | ------------------- | ----------------------------------------------- |
@@ -43,7 +51,7 @@ There are a few design choices and highlights of ResExt that give it an advantag
 
 ---
 
-### How do I use ResExt? (Examples)
+## How do I use ResExt? (Examples)
 
 First, you have to add ResExt to your dependencies:
 
@@ -55,7 +63,7 @@ cargo add resext
 
 ```toml
 [dependencies]
-resext = "0.2.0"
+resext = "0.6.1"
 ```
 
 Then, import the crate at the top of the file:
@@ -119,8 +127,10 @@ Caused by: InvalidInput
 
 ---
 
-### Important notes
+## Important notes
 
-- ResExt is still in development and isn't stable, wait for v0.5.0 at least to use it.
+- ResExt is still in development and isn't stable, wait for v1.0.0 to rely on it for production code.
 - ResExt is licensed under the **MIT** license.
-- ResExt doesn't have ergonomics as good as Anyhow's, as ResExt is meant for highly optimized, low-level production code.
+- ResExt doesn't have ergonomics as good as anyhow's, as ResExt is meant for highly optimized, low-level production code, not ergonomics in exchange for performance.
+- For contribution details, see <a href="CONTRIBUTING.md"/>.
+- For the changelog, see <a href="CHANGELOG.md"/>.
