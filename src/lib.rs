@@ -80,14 +80,6 @@ pub use crate::ctx::ErrCtx;
 /// Type alias for `Result<T, ErrCtx<E>>`.
 pub type CtxResult<T, E> = std::result::Result<T, ErrCtx<E>>;
 
-/// Convenient type alias for dynamic errors.
-///
-/// Use this when propagating multiple error types for quick error-handling in development.
-///
-/// WARNING: Although this type is ergonomic, it's not optimized for production code as it boxes
-/// errors which does a heap allocation.
-pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
-
 /// Throw an error if `condition` is true.
 ///
 /// Accepts either a static message which only needs to implement `std::fmt::Display` or a dynamic closure `FnOnce() -> T where T: std::fmt::Display`

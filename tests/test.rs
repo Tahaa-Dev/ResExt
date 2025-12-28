@@ -79,19 +79,3 @@ fn test_long_context_chain() {
     assert!(msg.contains("fifth"));
     assert_eq!(msg.matches("\n- ").count(), 4); // 4 delimiters for 5 messages
 }
-
-#[test]
-#[should_panic]
-fn wrapper() {
-    fn dyn_ctx_test() -> DynResult<()> {
-        let _err1: Result<(), std::io::Error> = Err(std::io::Error::other("Error1")).context("")?;
-
-        let _err2: Result<(), std::fmt::Error> = Err(std::fmt::Error).with_context(String::new)?;
-
-        let _err3: Result<(), std::env::VarError> =
-            Err(std::env::VarError::NotPresent).byte_context(Vec::new())?;
-
-        Ok(())
-    }
-    dyn_ctx_test().unwrap()
-}
