@@ -115,7 +115,7 @@ impl<T, E: Error> ResExt<T, E> for Result<T, ErrCtx<E>> {
         with_context::extra_with_ctx_impl(self, closure)
     }
 
-    fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>> {
+    unsafe fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>> {
         context::extra_byte_context_impl(self, bytes.as_slice())
     }
 }

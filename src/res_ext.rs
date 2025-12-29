@@ -73,8 +73,12 @@ pub trait ResExt<T, E: Error> {
     /// have raw bytes instead of strings.
     /// See `.context()` docs for more details.
     ///
-    /// **NOTE:** This method consumes the input `Vec<u8>` if it is the first context in the chain, if you need the `Vec<u8>`, use `.clone()`.
-    fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>>;
+    /// **NOTE:** This method consumes the input `Vec<u8>` if it is the first context in the chain, if you need the `Vec<u8>`, use `.clone()`0.
+    ///
+    /// ## Safety
+    /// This method is **unsafe** since it can lead to invalid UTF-8 context
+    /// messages.
+    unsafe fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>>;
 }
 
 impl<T, E: Error> ResExt<T, E> for Result<T, E> {
@@ -108,7 +112,7 @@ impl<T, E: Error> ResExt<T, E> for Result<T, E> {
         with_context::with_context_impl(self, closure)
     }
 
-    fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>> {
+    unsafe fn byte_context(self, bytes: Vec<u8>) -> Result<T, ErrCtx<E>> {
         context::byte_context_impl(self, bytes)
     }
 }

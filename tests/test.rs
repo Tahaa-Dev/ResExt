@@ -11,10 +11,12 @@ fn test_core() -> CtxResult<(), std::io::Error> {
     println!("{}\n", ctx);
     println!("{:?}\n", ctx);
 
-    let ctx: CtxResult<&str, std::io::Error> = error
-        .context("Failed to do I/O work.")
-        .byte_context(b"Failed to read file.".to_vec())
-        .with_context(|| format!("File [{}] failed to open.", "foo.txt"));
+    let ctx: CtxResult<&str, std::io::Error> = unsafe {
+        error
+            .context("Failed to do I/O work.")
+            .byte_context(b"Failed to read file.".to_vec())
+            .with_context(|| format!("File [{}] failed to open.", "foo.txt"))
+    };
 
     let ctx_err = ctx.as_ref().unwrap_err();
 
