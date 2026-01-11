@@ -1,8 +1,10 @@
-<h1 style="text-align: center;">ResExt</h1>
+<h1 align="center">ResExt</h1>
 <div style="display:flex; justify-content:center;"><div style="width:40%; background-color:#5e5e5e; height:2px; border-radius:1px"/></div>
 
-[<img alt="crates.io" src="https://img.shields.io/crates/v/resext.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/resext)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-resext-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/resext)
+[![crates.io]](https://crates.io/crates/resext)
+[![Docs.rs]](https://docs.rs/resext)
+[![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <div style="display:flex; justify-content:center"><div style="width:90%; height:2px;background-color:#5e5e5e; border-radius:1px;"/></div>
 
@@ -10,17 +12,7 @@
 
 ResExt provides ergonomic methods for `Result<T, E>` without the overhead of type erasure or boxing. Add context to errors, handle failures gracefully, and maintain zero-allocation paths for static messages.
 
-\*Context chaining uses a single `Vec<u8>` allocation which will be optimized to be zero-alloc in later versions.
-
----
-
-### Allocation Strategy
-
-- **Static context:** Zero allocations (messages stored in binary)
-- **Context chaining:** Single `Vec<u8>` for first context (all messages in one allocation)
-- **Dynamic context:** Allocates only for the generated string
-
-Compare to `anyhow`: boxes every error
+\*Context chaining uses a single `Vec<u8>` allocation which will be optimized to be zero-alloc in later versions using a manual `arrayvec` implementation (or something similar).
 
 ---
 
@@ -29,25 +21,22 @@ Compare to `anyhow`: boxes every error
 There are a few design choices and highlights of ResExt that give it an advantage over `anyhow` and similar error handling crates, some of those being:
 
 - **Zero allocation by default:** Static context uses `&'static str`, no heap allocation by default.
-- **No custom error types:** Works with any `Result<T, E>` and has methods to get the raw source of errors, fully compatible with old code.
 - **Minimal bloat:** Zero dependencies, tiny compile times.
 - **No type erasure:** Keep your error types concrete when you need them.
-- **Pay only for what you use:** All methods that allocate are documented for their exact cost, and every one of them only allocates once.
-- **No-std support coming:** Once main crate stabilizes.
 
 ---
 
 ## Quick Comparison
 
-| Feature                   | `anyhow`              | `resext`                                          |
-| ------------------------- | ------------------- | ----------------------------------------------- |
-| Zero-alloc static context | No                  | Yes (coming)                                    |
-| Dynamic context           | Yes                 | Yes                                             |
-| Type erasure              | Yes (always)        | No, zero boxing overhead, zero extra allocation |
-| Dependencies              | 1                   | 0                                               |
-| No-std support            | Yes, but uses alloc | Coming without alloc                            |
-| Context chaining          | Yes                 | Yes                                             |
-| Allocations per error     | 2+ (box and context)  | 0-1 (single `Vec<u8>` only if context)          |
+| Feature                   | `anyhow`               | `resext`                     |
+| ------------------------- | -------------------- | -------------------------- |
+| Zero-alloc static context | No                   | Yes (coming)               |
+| Dynamic context           | Yes                  | Yes                        |
+| Type erasure              | Yes (always)         | No, zero extra allocation  |
+| Dependencies              | 1                    | 0                          |
+| No-std support            | Yes, but uses alloc  | Coming without alloc       |
+| Context chaining          | Yes                  | Yes                        |
+| Allocations per error     | 2+ (box and context) | 0-1 (depends on operation) |
 
 ---
 
@@ -63,7 +52,7 @@ cargo add resext
 
 ```toml
 [dependencies]
-resext = "0.6.1"
+resext = "0.6.3"
 ```
 
 Then, import the crate at the top of the file:
@@ -100,7 +89,7 @@ fn load_config() -> CtxResult<Value, Error> {
 
     // Parse with chained context
     let config: Value = toml::from_str(&content)
-        .map_err(|e| Error::new(ErrorKind::InvalidInput, "Invalid TOML in input file"))
+        .map_err(|e| Error::new(ErrorKind::InvalidData, "Invalid TOML in input file"))
         .context("Failed to deserialize TOML")
         .with_context(|| format!("Error in file: {}", path))?;
 
@@ -127,7 +116,7 @@ Caused by: InvalidInput
 
 ---
 
-## Important notes
+## Notes
 
 - ResExt is still in development and isn't stable, wait for v1.0.0 to rely on it for production code.
 - ResExt is licensed under the **MIT** license.

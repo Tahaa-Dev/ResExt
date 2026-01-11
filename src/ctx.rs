@@ -13,7 +13,7 @@ use crate::res_ext_methods::*;
 /// The `Vec<u8>` for messages will be optimized even further in nexy versions to use `smallvec` or
 /// a similar crate for zero-alloc small contexts while longer ones stay alloc.
 pub struct ErrCtx<E: Error> {
-    pub msg: Vec<u8>,
+    pub(crate) msg: Vec<u8>,
     pub source: E,
 }
 
