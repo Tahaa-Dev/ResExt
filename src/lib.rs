@@ -69,6 +69,7 @@ This crate is licensed under the MIT license.
 */
 
 mod ctx;
+mod enum_macro;
 mod res_ext;
 mod res_ext_methods;
 mod throw_err;
