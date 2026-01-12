@@ -1,8 +1,8 @@
 <h1 align="center">ResExt</h1>
-<div style="display:flex; justify-content:center;"><div style="width:40%; background-color:#5e5e5e; height:2px; border-radius:1px"/></div>
 
 [<img alt="crates.io" src="https://img.shields.io/crates/v/resext.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/resext)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-resext-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/resext)[![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-resext-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/resext)
+[![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <div style="display:flex; justify-content:center"><div style="width:90%; height:2px;background-color:#5e5e5e; border-radius:1px;"/></div>
@@ -70,7 +70,7 @@ use resext::ErrCtx;
 use resext::CtxResult;
 
 // Macro for throwing errors on a condition
-use resext::throw_err_if;
+use resext::panic_if;
 ```
 
 - Then use the new methods! Example code:
@@ -92,7 +92,7 @@ fn load_config() -> CtxResult<Value, Error> {
         .context("Failed to deserialize TOML")
         .with_context(|| format!("Error in file: {}", path))?;
 
-    throw_err_if!(config.is_array(), || format!("Invalid input for config in file: {}.\n Config cannot be an array."), 1);
+    panic_if!(config.is_array(), || format!("Invalid input for config in file: {}.\n Config cannot be an array."), 1);
 
     Ok(config)
 }
