@@ -1,7 +1,7 @@
 use resext::*;
 
 #[test]
-fn test_core() -> CtxResult<(), std::io::Error> {
+fn test_core() {
     let error: Result<&str, std::io::Error> = Err(std::io::Error::other("I/O Failed"));
 
     let ctx = ErrCtx::new(
@@ -32,8 +32,6 @@ fn test_core() -> CtxResult<(), std::io::Error> {
     // Statement for checking error formatting with `?`, commented out as it fails tests but is
     // useful for general testing / debugging.
     //ctx?;
-
-    Ok(())
 }
 
 #[test]
@@ -54,15 +52,8 @@ fn test_methods() {
     let value = res.or_exit(1);
     let value2 = res2.better_expect("Failed to unwrap Result.", 1, true);
 
-    throw_err_if!(value.to_string() == value2, "Values aren't unique", 1);
-    throw_err_if!(
-        value != 20,
-        || format!(
-            "Value didn't unwrap correctly, it unwrapped into [`{}`] instead of [`20`]",
-            value
-        ),
-        1
-    );
+    assert_eq!(value, 20);
+    assert_eq!(value2, "ok");
 }
 
 #[test]
@@ -80,4 +71,18 @@ fn test_long_context_chain() {
     assert!(msg.contains("first"));
     assert!(msg.contains("fifth"));
     assert_eq!(msg.matches("\n- ").count(), 4); // 4 delimiters for 5 messages
+}
+
+#[test]
+fn test_throw_err_macros() {
+    panic_if!(false, "TEST", 1);
+
+    let idx = 20;
+    let res = return_err_if!(
+        false,
+        || format!("Failure at line: {}", idx),
+        std::io::Error::other("TEST")
+    );
+
+    panic_if!(res.is_err(), || format!("Failure: {}", res.unwrap_err()), 1);
 }
