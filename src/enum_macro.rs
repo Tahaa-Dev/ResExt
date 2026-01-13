@@ -65,11 +65,3 @@ macro_rules! __from_impl {
         }
     };
 }
-
-enumerate! {
-    enum Poo {
-        Poop(usize),
-        Pooo(String),
-        Other,
-    }
-}
