@@ -9,5 +9,3 @@ keywords = ["error", "error-handling", "result", "context"]
 license = "MIT"
 repository = "https://github.com/Tahaa-Dev/ResExt"
 readme = "README.md"
-
-[dependencies]
