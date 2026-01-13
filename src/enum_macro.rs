@@ -31,7 +31,7 @@ macro_rules! enumerate {
 #[macro_export]
 macro_rules! __display_match_arm_pat {
     ($var:ident, $name:ident, $variant:ident ($type:ty)) => {
-        $name::$variant ($var)
+        $name::$variant($var)
     };
 
     ($var:ident, $name:ident, $variant:ident) => {
@@ -50,7 +50,6 @@ macro_rules! __display_match_arm_write {
         write!($f, "{}", stringify!($variant))
     };
 }
-
 
 #[doc(hidden)]
 #[macro_export]
