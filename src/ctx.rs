@@ -47,19 +47,7 @@ impl<E: Debug + Error> Debug for ErrCtx<E> {
     }
 }
 
-impl<E: Display + Error + 'static> Error for ErrCtx<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
-    }
-
-    fn description(&self) -> &str {
-        "Context for error"
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        Some(&self.source)
-    }
-}
+impl<E: Error + 'static> Error for ErrCtx<E> {}
 
 impl<E: Error> From<E> for ErrCtx<E> {
     fn from(value: E) -> Self {

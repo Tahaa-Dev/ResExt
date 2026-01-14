@@ -80,9 +80,9 @@ fn test_throw_err_macros() {
     let idx = 20;
     let res = return_err_if!(
         false,
-        || format!("Failure at line: {}", idx),
+        || format!("Failed to read line: {}", idx),
         std::io::Error::other("TEST")
     );
 
-    panic_if!(res.is_err(), || format!("Failure: {}", res.unwrap_err()), 1);
+    panic_if!(res.is_err(), "Error: Failed to unwrap Result", 1);
 }
