@@ -100,26 +100,26 @@
 /// ## Supported Variants
 ///
 /// - **Wrapped variants**: Must have exactly one unnamed field
-///   ```rust
+///   ```rust,ignore
 ///   Io(std::io::Error)  // ✓ Generates From impl
 ///   Parse(String)       // ✓ Generates From impl
 ///   ```
 ///
 /// - **Unit variants**: No fields, used for custom error cases
-///   ```rust
+///   ```rust,ignore
 ///   Timeout             // ✓ No From impl
 ///   InvalidInput        // ✓ No From impl
 ///   ```
 ///
 /// - **Named fields**: Not supported, will be supported in v0.8.0 with a proc macro
-///   ```rust
+///   ```rust,ignore
 ///   Custom { code: i32 }  // ✗ Will not compile
 ///   ```
 ///
 /// ## Generated Code
 ///
 /// For this enum:
-/// ```rust
+/// ```rust,ignore
 /// use resext::enumerate;
 ///
 /// enumerate! {
@@ -167,9 +167,7 @@ macro_rules! enumerate {
 
         impl std::error::Error for $name {}
 
-        $(__from_impl!($name, $variant $(($type))?);)*
-
-        __alias_helper!($vis, $name $($alias)?);
+        __struct_gen!($($variant $($type)?)*, $vis, $name $($alias)?);
     };
 }
 
@@ -200,12 +198,12 @@ macro_rules! __display_match_arm_write {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __from_impl {
-    ($name:ident, $variant:ident) => {};
+    ($struct:ident, $enum:ident, $variant:ident) => {};
 
-    ($name:ident, $variant:ident ($type:ty)) => {
-        impl From<$type> for $crate::ErrCtx<$name> {
+    ($struct:ident, $enum:ident, $variant:ident ($type:ty)) => {
+        impl From<$type> for $struct {
             fn from(value: $type) -> Self {
-                Self::new($name::$variant(value), Vec::new())
+                Self($crate::ErrCtx::new($enum::$variant(value), Vec::new()))
             }
         }
     };
@@ -213,12 +211,50 @@ macro_rules! __from_impl {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! __alias_helper {
-    ($vis:vis, $name:ident $alias:ident) => {
-        $vis type $alias<T> = $crate::CtxResult<T, $name>;
+macro_rules! __struct_gen {
+    ($($variant:ident $($type:ty)?)*, $vis:vis, $enum:ident $alias:ident) => {
+        #[derive(Debug)]
+        $vis struct $alias($crate::ErrCtx<$enum>);
+
+        impl std::fmt::Display for $alias {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl std::error::Error for $alias {}
+
+        $vis type $alias<T> = Result<T, $alias>;
+
+        $(__from_impl!($alias, $enum, $variant $(($type))?);)*
+
+        impl From<$enum> for $alias {
+            fn from(value: $enum) -> Self {
+                Self($crate::ErrCtx::new(value, Vec::new()))
+            }
+        }
     };
 
-    ($vis:vis, $name:ident) => {
-        $vis type Res<T> = $crate::CtxResult<T, $name>;
+    ($($variant:ident $($type:ty)?)*, $vis:vis, $enum:ident) => {
+        #[derive(Debug)]
+        $vis struct ResStruct($crate::ErrCtx<$enum>);
+
+        impl std::fmt::Display for ResStruct {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl std::error::Error for ResStruct {}
+
+        $vis type Res<T> = Result<T, ResStruct>;
+
+        $(__from_impl!(ResStruct, $enum, $variant $(($type))?);)*
+
+        impl From<$enum> for ResStruct {
+            fn from(value: $enum) -> Self {
+                Self($crate::ErrCtx::new(value, Vec::new()))
+            }
+        }
     };
 }
