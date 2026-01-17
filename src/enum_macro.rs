@@ -1,3 +1,76 @@
+/// Generate a complete error handling setup with context chain support.
+///
+/// This macro generates all the types and traits needed for error handling
+/// with context chains, similar to anyhow but with explicit error types.
+///
+/// # What Gets Generated
+///
+/// 1. Your error enum with `Display`, `Debug`, and `Error` implementations
+/// 2. `ResErr` struct that wraps your enum with context messages
+/// 3. `From` implementations for automatic error conversion
+/// 4. `ResExt` trait with context methods
+/// 5. `Res<T>` type alias (or custom alias)
+///
+/// # Syntax
+///
+/// ```rust,ignore
+/// ResExt! {
+///     #[derive(Clone)]  // Optional attributes
+///     pub enum ErrorName {
+///         Variant(ErrorType),  // Wrapped error type
+///         AnotherVariant,      // Unit variant
+///     }
+///     as CustomAlias  // Optional custom type alias
+/// }
+/// ```
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust,ignore
+/// use resext::ResExt;
+///
+/// ResExt! {
+///     pub enum MyError {
+///         Io(std::io::Error),
+///         Parse(std::num::ParseIntError),
+///     }
+/// }
+///
+/// fn example() -> Res<i32> {
+///     let content = std::fs::read_to_string("number.txt")
+///         .context("Failed to read file")?;
+///
+///     let number = content.trim().parse()
+///         .context("Failed to parse number")?;
+///
+///     Ok(number)
+/// }
+/// ```
+///
+/// ## Custom Type Alias
+///
+/// ```rust,ignore
+/// use resext::ResExt;
+///
+/// ResExt! {
+///     enum AppError {
+///         Config(std::io::Error),
+///     }
+///     as AppResult
+/// }
+///
+/// fn load() -> AppResult<()> {
+///     Ok(())
+/// }
+/// ```
+///
+/// # Performance
+///
+/// - Error construction: Zero allocations
+/// - First `.context()`: One allocation for the message buffer
+/// - Subsequent `.context()`: Reuses existing buffer
 #[macro_export]
 macro_rules! ResExt {
     (
@@ -23,6 +96,20 @@ macro_rules! ResExt {
 
         impl std::error::Error for $name {}
 
+        /// Wrapper type that holds your error with optional context messages.
+        ///
+        /// This type is automatically created when you use `.context()` or
+        /// `.with_context()` on a Result.
+        ///
+        /// # Display Format
+        ///
+        /// When displayed, shows context messages like this:
+        ///
+        /// ```text
+        /// Failed to process request
+        /// - Failed to load user data
+        /// Caused by: Connection refused
+        /// ```
         $vis struct ResErr {
             msg: Vec<u8>,
             $vis source: $name,
@@ -66,15 +153,68 @@ macro_rules! ResExt {
             }
         }
 
+        /// Extension trait for adding context to Result types.
+        ///
+        /// Automatically implemented for all `Result<T, E>` where `E` can be
+        /// converted into your error enum.
+        ///
+        /// # Examples
+        ///
+        /// ```rust,ignore
+        /// std::fs::read("file.txt")
+        ///     .context("Failed to read file")?;
+        /// ```
         $vis trait ResExt<T> {
+            /// Add a static context message to an error.
+            ///
+            /// The message is only allocated if an error occurs.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// std::fs::read("config.toml")
+            ///     .context("Failed to read config")?;
+            /// ```
             fn context(self, msg: &str) -> Result<T, ResErr>;
 
+            /// Add a dynamic context message (computed only on error).
+            ///
+            /// Use this when the context message needs runtime information.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// std::fs::read(path)
+            ///     .with_context(|| format!("Failed to read: {}", path))?;
+            /// ```
             fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr>;
 
+            /// Add raw bytes as context (must be valid UTF-8).
+            ///
+            /// # Safety
+            ///
+            /// The bytes must be valid UTF-8
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr>;
 
+            /// Exit the process with the given code if the result is an error.
+            ///
+            /// Useful for CLI applications that want to exit on critical errors.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// let config = load_config().or_exit(1);
+            /// ```
             fn or_exit(self, code: i32) -> T;
 
+            /// Like `or_exit` but prints a custom message before exiting.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// let data = load_critical_data()
+            ///     .better_expect(|| "FATAL: Cannot start without data", 1);
+            /// ```
             fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
         }
 
