@@ -1,150 +1,5 @@
-/// Generates an enum with automatic trait implementations.
-///
-/// This macro creates an enum and implements:
-/// - `From<T>` for each wrapped variant type (auto-converts to `ErrCtx<Enum>`)
-/// - `Display` trait (delegates to inner values or uses variant name)
-/// - `Error` trait (makes it usable with `?` operator)
-/// - `Res<T>` type alias (shorthand for `CtxResult<T, Enum>`)
-///
-/// # Examples
-///
-/// ## Basic Usage
-///
-/// ```rust,ignore
-/// use resext::enumerate;
-///
-/// enumerate! {
-///     pub enum MyError {
-///         Io(std::io::Error),
-///         Parse(String),
-///         Timeout,
-///     }
-/// }
-///
-/// fn read_file() -> Res<String> {
-///     // io::Error automatically converts to MyError::Io
-///     let data = std::fs::read_to_string("file.txt")?;
-///     Ok(data)
-/// }
-/// ```
-///
-/// ## With Context Chains
-///
-/// ```rust,ignore
-/// use resext::{enumerate, ResExt};
-///
-/// enumerate! {
-///     enum AppError {
-///         Io(std::io::Error),
-///         Network(String),
-///     }
-/// }
-///
-/// fn fetch_config() -> Res<Config> {
-///     let data = std::fs::read("config.json")
-///         .context("Failed to read config")?;
-///
-///     let config = parse_config(&data)
-///         .map_err(|e| AppError::Network(e.to_string()))?
-///         .context("Failed to parse config")?;
-///
-///     Ok(config)
-/// }
-/// ```
-///
-/// ## Pattern Matching on Errors
-///
-/// ```rust,ignore
-/// use resext::enumerate;
-///
-/// enumerate! {
-///     enum MyError {
-///         Io(std::io::Error),
-///         Timeout,
-///     }
-/// }
-///
-/// match some_operation() {
-///     Ok(val) => println!("Success: {}", val),
-///     Err(e) => match e.error() {
-///         MyError::Io(io_err) => eprintln!("IO error: {}", io_err),
-///         MyError::Timeout => eprintln!("Operation timed out"),
-///     }
-/// }
-/// ```
-///
-/// ## With Custom Alias
-///
-/// ```rust,ignore
-/// use resext::enumerate
-///
-/// enumerate! {
-///     enum ErrorTypes {
-///         Io(std::io::Error),
-///         Parse(serde_json::Error),
-///     } as MyResult
-/// }
-///
-/// fn parse_logs() -> MyResult<serde_json::Value> {
-///     let content = std::fs::read("log.json")?;
-///
-///     let parsed_data = serde_json::from_slice(&content)
-///         .context("Failed to parse logs")?;
-///
-///     Ok(parsed_data)
-/// }
-/// ```
-///
-/// `enumerate! {}` generated a custom alias (`MyResult<T>`) instead of `Res<T>`
-///
-/// ## Supported Variants
-///
-/// - **Wrapped variants**: Must have exactly one unnamed field
-///   ```rust,ignore
-///   Io(std::io::Error)  // ✓ Generates From impl
-///   Parse(String)       // ✓ Generates From impl
-///   ```
-///
-/// - **Unit variants**: No fields, used for custom error cases
-///   ```rust,ignore
-///   Timeout             // ✓ No From impl
-///   InvalidInput        // ✓ No From impl
-///   ```
-///
-/// - **Named fields**: Not supported, will be supported in v0.8.0 with a proc macro
-///   ```rust,ignore
-///   Custom { code: i32 }  // ✗ Will not compile
-///   ```
-///
-/// ## Generated Code
-///
-/// For this enum:
-/// ```rust,ignore
-/// use resext::enumerate;
-///
-/// enumerate! {
-///     pub enum MyError {
-///         Io(std::io::Error),
-///         Timeout,
-///     }
-/// }
-/// ```
-///
-/// The macro generates:
-/// ```rust,ignore
-/// #[derive(Debug)]
-/// pub enum MyError {
-///     Io(std::io::Error),
-///     Timeout,
-/// }
-///
-/// impl From<std::io::Error> for ErrCtx<MyError> { ... }
-/// impl std::fmt::Display for MyError { ... }
-/// impl std::error::Error for MyError {}
-/// pub type Res<T> = CtxResult<T, MyError>;
-/// ```
 #[macro_export]
-macro_rules! enumerate {
+macro_rules! ResExt {
     (
     $(#[$meta:meta])*
     $vis:vis enum $name:ident {
@@ -152,6 +7,7 @@ macro_rules! enumerate {
     }
     $(as $alias:ident)?) => {
         $(#[$meta])*
+        #[allow(dead_code)]
         #[derive(Debug)]
         $vis enum $name {
             $($variant $(($type))?),*
@@ -160,14 +16,72 @@ macro_rules! enumerate {
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 match self {
-                    $(__display_match_arm_pat!(var, $name, $variant $(($type))?) => __display_match_arm_write!(var, f, $variant $(($type))?)),*
+                    $($crate::__display_match_arm_pat!(var, $name, $variant $(($type))?) => $crate::__display_match_arm_write!(var, f, $variant $(($type))?)),*
                 }
             }
         }
 
         impl std::error::Error for $name {}
 
-        __struct_gen!($($variant $($type)?)*, $vis, $name $($alias)?);
+        $vis struct ResErr {
+            msg: Vec<u8>,
+            $vis source: $name,
+        }
+
+        $crate::__alias_helper!($vis $($alias)?);
+
+        impl std::fmt::Display for ResErr {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                if self.msg.is_empty() {
+                    write!(f, "{}", &self.source)
+                } else {
+                    write!(
+                        f,
+                        "{}\nCaused by: {}\n",
+                        unsafe { std::str::from_utf8_unchecked(&self.msg) },
+                        &self.source
+                    )
+                }
+            }
+        }
+
+        impl std::fmt::Debug for ResErr {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                if self.msg.is_empty() {
+                    write!(f, "{:?}", &self.source)
+                } else {
+                    write!(
+                        f,
+                        "{}\nCaused by: {:?}\n",
+                        unsafe { std::str::from_utf8_unchecked(&self.msg) },
+                        &self.source
+                    )
+                }
+            }
+        }
+
+        impl From<$name> for ResErr {
+            fn from(value: $name) -> Self {
+                Self { msg: Vec::new(), source: value }
+            }
+        }
+
+        $vis trait ResExt<T> {
+            fn context(self, msg: &str) -> Result<T, ResErr>;
+
+            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr>;
+
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr>;
+
+            fn or_exit(self, code: i32) -> T;
+
+            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
+        }
+
+        // Hide unnecessary implementation details from docs
+        $crate::__impl_resext!($name);
+
+        $($crate::__from_impl!($name, $variant $($type)?);)*
     };
 }
 
@@ -198,12 +112,18 @@ macro_rules! __display_match_arm_write {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __from_impl {
-    ($struct:ident, $enum:ident, $variant:ident) => {};
+    ($enum:ident, $variant:ident) => {};
 
-    ($struct:ident, $enum:ident, $variant:ident ($type:ty)) => {
-        impl From<$type> for $struct {
+    ($enum:ident, $variant:ident $type:ty) => {
+        impl From<$type> for ResErr {
             fn from(value: $type) -> Self {
-                Self($crate::ErrCtx::new($enum::$variant(value), Vec::new()))
+                Self { msg: Vec::new(), source: $enum::$variant(value) }
+            }
+        }
+
+        impl From<$type> for $enum {
+            fn from(value: $type) -> Self {
+                Self::$variant(value)
             }
         }
     };
@@ -211,49 +131,139 @@ macro_rules! __from_impl {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! __struct_gen {
-    ($($variant:ident $($type:ty)?)*, $vis:vis, $enum:ident $alias:ident) => {
-        #[derive(Debug)]
-        $vis struct $alias($crate::ErrCtx<$enum>);
-
-        impl std::fmt::Display for $alias {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "{}", self.0)
-            }
-        }
-
-        impl std::error::Error for $alias {}
-
-        $vis type $alias<T> = Result<T, $alias>;
-
-        $(__from_impl!($alias, $enum, $variant $(($type))?);)*
-
-        impl From<$enum> for $alias {
-            fn from(value: $enum) -> Self {
-                Self($crate::ErrCtx::new(value, Vec::new()))
-            }
-        }
+macro_rules! __alias_helper {
+    ($vis:vis $alias:ident) => {
+        $vis type $alias<T> = Result<T, ResErr>;
     };
 
-    ($($variant:ident $($type:ty)?)*, $vis:vis, $enum:ident) => {
-        #[derive(Debug)]
-        $vis struct ResStruct($crate::ErrCtx<$enum>);
+    ($vis:vis) => {
+        $vis type Res<T> = Result<T, ResErr>;
+    };
+}
 
-        impl std::fmt::Display for ResStruct {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "{}", self.0)
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __impl_resext {
+    ($enum:ident) => {
+        impl<T> ResExt<T> for Result<T, ResErr> {
+            fn context(self, msg: &str) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(mut err) => {
+                        if err.msg.is_empty() {
+                            err.msg.extend_from_slice(msg.as_bytes());
+                        } else {
+                            let bytes = msg.as_bytes();
+                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
+                            if diff < 0 {
+                                err.msg.reserve_exact((-diff) as usize);
+                            }
+                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.extend_from_slice(bytes);
+                        }
+                        Err(err)
+                    }
+                }
+            }
+
+            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(mut err) => {
+                        if err.msg.is_empty() {
+                            err.msg.extend_from_slice(f().as_bytes());
+                        } else {
+                            let s = f();
+                            let bytes = s.as_bytes();
+                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
+                            if diff < 0 {
+                                err.msg.reserve_exact((-diff) as usize);
+                            }
+                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.extend_from_slice(bytes);
+                        }
+                        Err(err)
+                    }
+                }
+            }
+
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(mut err) => {
+                        if err.msg.is_empty() {
+                            err.msg.extend_from_slice(bytes);
+                        } else {
+                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
+                            if diff < 0 {
+                                err.msg.reserve_exact((-diff) as usize);
+                            }
+                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.extend_from_slice(bytes);
+                        }
+                        Err(err)
+                    }
+                }
+            }
+
+            fn or_exit(self, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(_) => std::process::exit(code),
+                }
+            }
+
+            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(err) => {
+                        eprintln!("{}\nCaused by: {}", f(), err);
+                        std::process::exit(code);
+                    }
+                }
             }
         }
 
-        impl std::error::Error for ResStruct {}
+        impl<T, E: std::fmt::Display> ResExt<T> for Result<T, E>
+        where
+            $enum: From<E>,
+        {
+            fn context(self, msg: &str) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(err) => Err(ResErr { msg: msg.as_bytes().to_vec(), source: err.into() }),
+                }
+            }
 
-        $vis type Res<T> = Result<T, ResStruct>;
+            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(err) => Err(ResErr { msg: f().as_bytes().to_vec(), source: err.into() }),
+                }
+            }
 
-        $(__from_impl!(ResStruct, $enum, $variant $(($type))?);)*
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr> {
+                match self {
+                    Ok(ok) => Ok(ok),
+                    Err(err) => Err(ResErr { msg: bytes.to_vec(), source: err.into() }),
+                }
+            }
 
-        impl From<$enum> for ResStruct {
-            fn from(value: $enum) -> Self {
-                Self($crate::ErrCtx::new(value, Vec::new()))
+            fn or_exit(self, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(_) => std::process::exit(code),
+                }
+            }
+
+            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(err) => {
+                        eprintln!("{}\nCaused by: {}", f(), err);
+                        std::process::exit(code);
+                    }
+                }
             }
         }
     };
