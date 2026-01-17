@@ -43,7 +43,7 @@ fn test_panic_methods() {
 
     let ok2: u8 = Ok::<u8, std::io::Error>(0).or_exit(1);
 
-    panic_if!(ok != "String".to_string() || ok2 != 0, "Error: Result does not equal \"String\"", 1);
+    panic_if!(ok != "String" || ok2 != 0, "Error: Result does not equal \"String\"", 1);
 }
 
 #[test]
