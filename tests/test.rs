@@ -70,3 +70,13 @@ fn test_error_debug_format() {
     assert!(debug_output.contains("Context message"));
     assert!(debug_output.contains("Caused by:"));
 }
+
+#[test]
+fn test_new_method() {
+    let res = ResErr::new(Vec::new(), std::io::Error::other("TEST"));
+    let res2 =
+        ResErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
+
+    assert_eq!(res.to_string(), "TEST");
+    assert_eq!(res2.to_string(), "Test constructor `new()` method\nCaused by: TEST");
+}

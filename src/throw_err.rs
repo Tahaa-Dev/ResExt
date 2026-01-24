@@ -13,9 +13,6 @@
 /// // Dynamic
 /// panic_if!(x > 10, || format!("x={} is too big", x), 1);
 /// ```
-/// ## Internals
-///
-/// Uses `eprintln!("{}", msg)` to print the message then exits with `std::process::exit(code)`.
 #[macro_export]
 macro_rules! panic_if {
     ($condition:expr, || $msg:expr, $code:expr) => {
