@@ -110,6 +110,7 @@ macro_rules! ResExt {
         /// - Failed to load user data
         /// Caused by: Connection refused
         /// ```
+        #[doc(hidden)]
         $vis struct ResErr {
             msg: Vec<u8>,
             $vis source: $name,
@@ -124,7 +125,7 @@ macro_rules! ResExt {
                 } else {
                     write!(
                         f,
-                        "{}\nCaused by: {}\n",
+                        "{}\nCaused by: {}",
                         unsafe { std::str::from_utf8_unchecked(&self.msg) },
                         &self.source
                     )
@@ -147,11 +148,18 @@ macro_rules! ResExt {
             }
         }
 
+        impl ResErr {
+            $vis fn new<E>(msg: Vec<u8>, source: E) -> Self where $name: From<E> {
+                Self { msg, source: $name::from(source) }
+            }
+        }
+
         impl From<$name> for ResErr {
             fn from(value: $name) -> Self {
                 Self { msg: Vec::new(), source: value }
             }
         }
+
 
         /// Extension trait for adding context to Result types.
         ///
@@ -164,6 +172,7 @@ macro_rules! ResExt {
         /// std::fs::read("file.txt")
         ///     .context("Failed to read file")?;
         /// ```
+        #[doc(hidden)]
         $vis trait ResExt<T> {
             /// Add a static context message to an error.
             ///
@@ -175,6 +184,7 @@ macro_rules! ResExt {
             /// std::fs::read("config.toml")
             ///     .context("Failed to read config")?;
             /// ```
+            #[doc(hidden)]
             fn context(self, msg: &str) -> Result<T, ResErr>;
 
             /// Add a dynamic context message (computed only on error).
@@ -187,6 +197,7 @@ macro_rules! ResExt {
             /// std::fs::read(path)
             ///     .with_context(|| format!("Failed to read: {}", path))?;
             /// ```
+            #[doc(hidden)]
             fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr>;
 
             /// Add raw bytes as context (must be valid UTF-8).
@@ -194,6 +205,7 @@ macro_rules! ResExt {
             /// # Safety
             ///
             /// The bytes must be valid UTF-8
+            #[doc(hidden)]
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr>;
 
             /// Exit the process with the given code if the result is an error.
@@ -205,6 +217,7 @@ macro_rules! ResExt {
             /// ```rust,ignore
             /// let config = load_config().or_exit(1);
             /// ```
+            #[doc(hidden)]
             fn or_exit(self, code: i32) -> T;
 
             /// Like `or_exit` but prints a custom message before exiting.
@@ -215,6 +228,7 @@ macro_rules! ResExt {
             /// let data = load_critical_data()
             ///     .better_expect(|| "FATAL: Cannot start without data", 1);
             /// ```
+            #[doc(hidden)]
             fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
         }
 
