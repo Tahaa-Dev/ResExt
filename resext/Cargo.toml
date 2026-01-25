@@ -1,0 +1,11 @@
+[package]
+name = "resext"
+categories.workspace = true
+description.workspace = true
+keywords.workspace = true
+readme.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
