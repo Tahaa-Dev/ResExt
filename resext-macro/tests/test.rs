@@ -68,4 +68,3 @@ fn test_new_method() {
     assert_eq!(res.to_string(), "TEST");
     assert_eq!(res2.to_string(), "Test constructor `new()` method\nCaused by: TEST");
 }
-
