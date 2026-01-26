@@ -60,7 +60,7 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let from_impls = variants.iter().filter_map(|variant| {
         let variant_name = &variant.ident;
-        
+
         match &variant.fields {
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let field_type = &fields.unnamed[0].ty;
@@ -365,7 +365,7 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     if let Some(error) = errors {
-        TokenStream::from(error.to_compile_error()) 
+        TokenStream::from(error.to_compile_error())
     } else {
         TokenStream::from(expanded)
     }
