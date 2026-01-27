@@ -1,10 +1,14 @@
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{Data, DeriveInput, Error, parse_macro_input, spanned::Spanned};
+use quote::{ToTokens, quote};
+use syn::{
+    Data, DeriveInput, Error, Ident, LitStr, parse::Parse, parse_macro_input, spanned::Spanned,
+};
 
 #[proc_macro_attribute]
-pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
+    let args = parse_macro_input!(attr as ResExtArgs);
+
     let enum_name = &input.ident;
     let vis = &input.vis;
 
@@ -17,22 +21,35 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let include_variant = args.include_variant;
     let mut errors: Option<Error> = None;
     let display_match_arms = variants.iter().map(|variant| {
         let variant_name = &variant.ident;
 
         match &variant.fields {
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                quote! {
-                    #enum_name::#variant_name(var) => write!(f, "{}", var),
+                if include_variant {
+                    quote! {
+                        #enum_name::#variant_name(var) => write!(f, "{}: {}", stringify!(#variant_name), var),
+                    }
+                } else {
+                    quote! {
+                        #enum_name::#variant_name(var) => write!(f, "{}", var),
+                    }
                 }
             }
 
             syn::Fields::Named(fields) if fields.named.len() == 1 => {
                 let variant_field = fields.named[0].ident.as_ref().unwrap();
 
-                quote! {
-                    #enum_name::#variant_name { #variant_field } => write!(f, "{}", #variant_field),
+                if include_variant {
+                    quote! {
+                        #enum_name::#variant_name { #variant_field } => write!(f, "{}: {}: {}", stringify!(#variant_name), stringify!(#variant_field), #variant_field),
+                    }
+                } else {
+                    quote! {
+                        #enum_name::#variant_name { #variant_field } => write!(f, "{}", #variant_field),
+                    }
                 }
             }
 
@@ -45,7 +62,7 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
             _ => {
                 let error = Error::new(
                     variant.fields.span(),
-                    "Enum variants used in `#[resext]` can only have 1 field",
+                    "enum variants used in `#[resext]` can only have 1 field",
                 );
 
                 match &mut errors {
@@ -103,6 +120,14 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 
+    let prefix = args.prefix.unwrap_or_default();
+    let suffix = args.suffix.unwrap_or_default();
+    let msg_prefix = args.msg_prefix.unwrap_or_default();
+    let msg_suffix = args.msg_suffix.unwrap_or_default();
+    let msg_delimiter = args.msg_delimiter.unwrap_or_else(|| String::from(" - "));
+    let source_prefix = args.source_prefix.unwrap_or_else(|| String::from("Error: "));
+    let alias = args.alias.unwrap_or_else(|| quote! { Res });
+
     let expanded = quote! {
         #[derive(Debug)]
         #input
@@ -125,13 +150,16 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl std::fmt::Display for ResErr {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 if self.msg.is_empty() {
-                    write!(f, "{}", &self.source)
+                    write!(f, "{}{}{}", &#source_prefix, &self.source, &#suffix)
                 } else {
                     write!(
                         f,
-                        "{}\nCaused by: {}",
+                        "{}{}\n{}{}{}",
+                        &#prefix,
                         unsafe { std::str::from_utf8_unchecked(&self.msg) },
-                        &self.source
+                        &#source_prefix,
+                        &self.source,
+                        &#suffix,
                     )
                 }
             }
@@ -140,13 +168,16 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl std::fmt::Debug for ResErr {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 if self.msg.is_empty() {
-                    write!(f, "{:?}", &self.source)
+                    write!(f, "{}{:?}{}", &#source_prefix, &self.source, &#suffix)
                 } else {
                     write!(
                         f,
-                        "{}\nCaused by: {:?}\n",
+                        "{}{}\n{}{:?}{}",
+                        &#prefix,
                         unsafe { std::str::from_utf8_unchecked(&self.msg) },
-                        &self.source
+                        &#source_prefix,
+                        &self.source,
+                        &#suffix,
                     )
                 }
             }
@@ -246,12 +277,22 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
                             err.msg.extend_from_slice(msg.as_bytes());
                         } else {
                             let bytes = msg.as_bytes();
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let bytes2 = #msg_delimiter.as_bytes();
+                            let len2 = bytes2.len();
+                            let bytes3 = #msg_prefix.as_bytes();
+                            let len3 = bytes3.len();
+                            let bytes4 = #msg_suffix.as_bytes();
+                            let len4 = bytes4.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + len2 + len3 + len4 + 1 {
+                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
                             }
-                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.push(b'\n');
+                            err.msg.extend_from_slice(bytes2);
+                            err.msg.extend_from_slice(bytes3);
                             err.msg.extend_from_slice(bytes);
+                            err.msg.extend_from_slice(bytes4);
                         }
                         Err(err)
                     }
@@ -267,12 +308,22 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         } else {
                             let s = f();
                             let bytes = s.as_bytes();
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let bytes2 = #msg_delimiter.as_bytes();
+                            let len2 = bytes2.len();
+                            let bytes3 = #msg_prefix.as_bytes();
+                            let len3 = bytes3.len();
+                            let bytes4 = #msg_suffix.as_bytes();
+                            let len4 = bytes4.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + len2 + len3 + len4 + 1 {
+                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
                             }
-                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.push(b'\n');
+                            err.msg.extend_from_slice(bytes2);
+                            err.msg.extend_from_slice(bytes3);
                             err.msg.extend_from_slice(bytes);
+                            err.msg.extend_from_slice(bytes4);
                         }
                         Err(err)
                     }
@@ -286,12 +337,22 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         if err.msg.is_empty() {
                             err.msg.extend_from_slice(bytes);
                         } else {
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let bytes2 = #msg_delimiter.as_bytes();
+                            let len2 = bytes2.len();
+                            let bytes3 = #msg_prefix.as_bytes();
+                            let len3 = bytes3.len();
+                            let bytes4 = #msg_suffix.as_bytes();
+                            let len4 = bytes4.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + len2 + len3 + len4 + 1 {
+                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
                             }
-                            err.msg.extend_from_slice(b"\n- ");
+                            err.msg.push(b'\n');
+                            err.msg.extend_from_slice(bytes2);
+                            err.msg.extend_from_slice(bytes3);
                             err.msg.extend_from_slice(bytes);
+                            err.msg.extend_from_slice(bytes4);
                         }
                         Err(err)
                     }
@@ -309,7 +370,7 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 match self {
                     Ok(ok) => ok,
                     Err(err) => {
-                        eprintln!("{}\nCaused by: {}", f(), err);
+                        eprintln!("{}\nError: {}", f(), err);
                         std::process::exit(code);
                     }
                 }
@@ -352,21 +413,108 @@ pub fn resext(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 match self {
                     Ok(ok) => ok,
                     Err(err) => {
-                        eprintln!("{}\nCaused by: {}", f(), err);
+                        eprintln!("{}\nError: {}", f(), err);
                         std::process::exit(code);
                     }
                 }
             }
         }
 
-        // fixed alias temporarily
-        // TODO: Provide custom aliases through attribute parsing
-        #vis type Res<T> = Result<T, ResErr>;
+        #vis type #alias<T> = Result<T, ResErr>;
     };
 
     if let Some(error) = errors {
         TokenStream::from(error.to_compile_error())
     } else {
         TokenStream::from(expanded)
+    }
+}
+
+struct ResExtArgs {
+    prefix: Option<String>,
+    suffix: Option<String>,
+    msg_prefix: Option<String>,
+    msg_suffix: Option<String>,
+    msg_delimiter: Option<String>,
+    source_prefix: Option<String>,
+    include_variant: bool,
+    alias: Option<proc_macro2::TokenStream>,
+}
+
+impl Parse for ResExtArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut args = ResExtArgs {
+            prefix: None,
+            suffix: None,
+            msg_prefix: None,
+            msg_suffix: None,
+            msg_delimiter: None,
+            source_prefix: None,
+            include_variant: false,
+            alias: None,
+        };
+
+        while !input.is_empty() {
+            let key: Ident = input.parse()?;
+            input.parse::<syn::Token![=]>()?;
+
+            match key.to_string().as_str() {
+                "prefix" => {
+                    let value: LitStr = input.parse()?;
+                    args.prefix = Some(value.value())
+                }
+
+                "suffix" => {
+                    let value: LitStr = input.parse()?;
+                    args.suffix = Some(value.value())
+                }
+
+                "msg_prefix" => {
+                    let value: LitStr = input.parse()?;
+                    args.msg_prefix = Some(value.value())
+                }
+
+                "msg_suffix" => {
+                    let value: LitStr = input.parse()?;
+                    args.msg_suffix = Some(value.value())
+                }
+
+                "msg_delimiter" => {
+                    let value: LitStr = input.parse()?;
+                    args.msg_delimiter = Some(value.value())
+                }
+
+                "source_prefix" => {
+                    let value: LitStr = input.parse()?;
+                    args.source_prefix = Some(value.value())
+                }
+
+                "include_variant" => {
+                    let value: syn::LitBool = input.parse()?;
+                    args.include_variant = value.value();
+                }
+
+                "alias" => {
+                    let value: Ident = input.parse()?;
+                    args.alias = Some(value.into_token_stream());
+                }
+
+                _ => {
+                    return Err(Error::new(
+                        key.span(),
+                        format!(
+                            "unknown argument passed to proc-macro attribute `#[resext]`: {}",
+                            key
+                        ),
+                    ));
+                }
+            }
+
+            if input.peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+
+        Ok(args)
     }
 }

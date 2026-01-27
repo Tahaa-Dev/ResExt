@@ -57,7 +57,7 @@ fn test_error_display_format() {
 
     assert!(output.contains("Failed to read config"));
     assert!(output.contains("- Failed to load application"));
-    assert!(output.contains("Caused by:"));
+    assert!(output.contains("Error:"));
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn test_error_debug_format() {
     let debug_output = format!("{:?}", err);
 
     assert!(debug_output.contains("Context message"));
-    assert!(debug_output.contains("Caused by:"));
+    assert!(debug_output.contains("Error:"));
 }
 
 #[test]
@@ -78,5 +78,5 @@ fn test_new_method() {
         ResErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
 
     assert_eq!(res.to_string(), "TEST");
-    assert_eq!(res2.to_string(), "Test constructor `new()` method\nCaused by: TEST");
+    assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");
 }
