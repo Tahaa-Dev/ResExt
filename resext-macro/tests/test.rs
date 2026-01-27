@@ -1,6 +1,6 @@
 use resext_macro::resext;
 
-#[resext]
+#[resext(alias = Resext, msg_delimiter = " • ")]
 enum ErrTypes {
     Custom(String),
     Io { error: std::io::Error },
@@ -9,11 +9,11 @@ enum ErrTypes {
 #[test]
 #[should_panic]
 fn test_error_propagation() {
-    fn temp() -> Res<()> {
+    fn temp() -> Resext<()> {
         let path = "non_existent";
         let _ = std::fs::read(path).with_context(|| format!("Failed to read file: {}", path))?;
 
-        let _: Res<()> = Err("TEST".to_string()).context("Custom error")?;
+        let _: Resext<()> = Err("TEST".to_string()).context("Custom error")?;
 
         Ok(())
     }
@@ -21,8 +21,8 @@ fn test_error_propagation() {
 }
 
 #[test]
-fn test_long_context() -> Res<()> {
-    let long_result: Res<()> = Ok::<(), std::io::Error>(())
+fn test_long_context() -> Resext<()> {
+    let long_result: Resext<()> = Ok::<(), std::io::Error>(())
         .context("msg1")
         .context("msg2")
         .context("msg3")
@@ -36,7 +36,7 @@ fn test_long_context() -> Res<()> {
 
 #[test]
 fn test_error_display_format() {
-    let result: Res<_> = std::fs::read("non_existent")
+    let result: Resext<_> = std::fs::read("non_existent")
         .context("Failed to read config")
         .with_context(|| "Failed to load application".to_string());
 
@@ -44,19 +44,19 @@ fn test_error_display_format() {
     let output = format!("{}", err);
 
     assert!(output.contains("Failed to read config"));
-    assert!(output.contains("- Failed to load application"));
-    assert!(output.contains("Caused by:"));
+    assert!(output.contains(" • Failed to load application"));
+    assert!(output.contains("Error:"));
 }
 
 #[test]
 fn test_error_debug_format() {
-    let result: Res<_> = std::fs::read("non_existent").context("Context message");
+    let result: Resext<_> = std::fs::read("non_existent").context("Context message");
 
     let err = result.unwrap_err();
     let debug_output = format!("{:?}", err);
 
     assert!(debug_output.contains("Context message"));
-    assert!(debug_output.contains("Caused by:"));
+    assert!(debug_output.contains("Error:"));
 }
 
 #[test]
@@ -65,6 +65,6 @@ fn test_new_method() {
     let res2 =
         ResErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
 
-    assert_eq!(res.to_string(), "TEST");
-    assert_eq!(res2.to_string(), "Test constructor `new()` method\nCaused by: TEST");
+    assert_eq!(res.to_string(), "Error: TEST");
+    assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");
 }

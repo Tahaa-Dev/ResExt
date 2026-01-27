@@ -108,7 +108,7 @@ macro_rules! ResExt {
         /// ```text
         /// Failed to process request
         /// - Failed to load user data
-        /// Caused by: Connection refused
+        /// Error: Connection refused
         /// ```
         #[doc(hidden)]
         $vis struct ResErr {
@@ -125,7 +125,7 @@ macro_rules! ResExt {
                 } else {
                     write!(
                         f,
-                        "{}\nCaused by: {}",
+                        "{}\nError: {}",
                         unsafe { std::str::from_utf8_unchecked(&self.msg) },
                         &self.source
                     )
@@ -140,7 +140,7 @@ macro_rules! ResExt {
                 } else {
                     write!(
                         f,
-                        "{}\nCaused by: {:?}\n",
+                        "{}\nError: {:?}\n",
                         unsafe { std::str::from_utf8_unchecked(&self.msg) },
                         &self.source
                     )
@@ -308,9 +308,10 @@ macro_rules! __impl_resext {
                             err.msg.extend_from_slice(msg.as_bytes());
                         } else {
                             let bytes = msg.as_bytes();
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + 3 {
+                                err.msg.reserve_exact((len + 3) - cap);
                             }
                             err.msg.extend_from_slice(b"\n- ");
                             err.msg.extend_from_slice(bytes);
@@ -329,9 +330,10 @@ macro_rules! __impl_resext {
                         } else {
                             let s = f();
                             let bytes = s.as_bytes();
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + 3 {
+                                err.msg.reserve_exact((len + 3) - cap);
                             }
                             err.msg.extend_from_slice(b"\n- ");
                             err.msg.extend_from_slice(bytes);
@@ -348,9 +350,10 @@ macro_rules! __impl_resext {
                         if err.msg.is_empty() {
                             err.msg.extend_from_slice(bytes);
                         } else {
-                            let diff: isize = err.msg.capacity() as isize - bytes.len() as isize;
-                            if diff < 0 {
-                                err.msg.reserve_exact((-diff) as usize);
+                            let len = bytes.len();
+                            let cap = err.msg.capacity();
+                            if cap < len + 3 {
+                                err.msg.reserve_exact((len + 3) - cap);
                             }
                             err.msg.extend_from_slice(b"\n- ");
                             err.msg.extend_from_slice(bytes);
@@ -371,7 +374,7 @@ macro_rules! __impl_resext {
                 match self {
                     Ok(ok) => ok,
                     Err(err) => {
-                        eprintln!("{}\nCaused by: {}", f(), err);
+                        eprintln!("{}\nError: {}", f(), err);
                         std::process::exit(code);
                     }
                 }
@@ -414,7 +417,7 @@ macro_rules! __impl_resext {
                 match self {
                     Ok(ok) => ok,
                     Err(err) => {
-                        eprintln!("{}\nCaused by: {}", f(), err);
+                        eprintln!("{}\nError: {}", f(), err);
                         std::process::exit(code);
                     }
                 }
