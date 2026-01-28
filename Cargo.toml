@@ -3,7 +3,7 @@ members = ["resext", "resext-macro"]
 resolver = "2"
 
 [workspace.package]
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 authors = ["Taha Mahmoud <tahamahmoud7097@gmail.com"]
 categories = ["rust-patterns", "no-std"]
@@ -11,4 +11,3 @@ description = "A simple, lightweight error handling crate for Rust"
 keywords = ["error", "error-handling", "result", "context"]
 license = "MIT"
 repository = "https://github.com/Tahaa-Dev/ResExt"
-readme = "README.md"

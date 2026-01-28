@@ -253,5 +253,9 @@
 //! resext = { version = "0.8", default-features = false, features = ["declarative"] }
 //! ```
 
+#[cfg(feature = "declarative")]
 mod enum_macro;
 mod throw_err;
+
+#[cfg(feature = "proc-macro")]
+pub use resext_macro::resext;

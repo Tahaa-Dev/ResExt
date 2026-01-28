@@ -3,13 +3,12 @@ name = "resext-macro"
 categories.workspace = true
 description.workspace = true
 keywords.workspace = true
-readme.workspace = true
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-publish = false
 
 [lib]
 proc-macro = true
