@@ -1,9 +1,99 @@
+//! Procedural macro implementation for ResExt.
+//!
+//! This crate provides the `#[resext]` proc-macro attribute for ergonomic error handling.
+//! It is not meant to be used directly - use the `resext` crate instead.
+//!
+//! # Overview
+//!
+//! The proc macro generates all necessary error handling code from a simple attribute:
+//!
+//! ```rust,ignore
+//! #[resext]
+//! enum MyError {
+//!     Io(std::io::Error),
+//!     Network(reqwest::Error),
+//! }
+//! ```
+//!
+//! This expands to approximately 200 lines of boilerplate including:
+//!
+//! - `Display` and `Error` trait implementations
+//! - `ResErr` wrapper struct with context storage
+//! - `ResExt` trait with context methods
+//! - `From` implementations for automatic conversion
+//! - Type alias for `Result<T, ResErr>`
+//!
+//! # Attribute Options
+//!
+//! See the [resext crate documentation](https://docs.rs/resext) for detailed
+//! information on all available options.
+
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
     Data, DeriveInput, Error, Ident, LitStr, parse::Parse, parse_macro_input, spanned::Spanned,
 };
 
+/// Generate error handling boilerplate for an enum.
+///
+/// # Usage
+///
+/// Basic usage with default settings:
+///
+/// ```rust,ignore
+/// #[resext]
+/// enum MyError {
+///     Io(std::io::Error),
+///     Parse(std::num::ParseIntError),
+/// }
+/// ```
+///
+/// With custom formatting:
+///
+/// ```rust,ignore
+/// #[resext(
+///     prefix = "ERROR: ",
+///     msg_delimiter = " -> ",
+///     include_variant = true
+/// )]
+/// enum MyError {
+///     Network(reqwest::Error),
+///     Database(sqlx::Error),
+/// }
+/// ```
+///
+/// ---
+///
+/// # Options
+///
+/// - `prefix` - Prepend to all error messages
+/// - `suffix` - Append to all error messages
+/// - `msg_prefix` - Prepend to each context message
+/// - `msg_suffix` - Append to each context message
+/// - `msg_delimiter` - Separator between contexts (default: " - ")
+/// - `source_prefix` - Prepend to underlying error (default: "Error: ")
+/// - `include_variant` - Show variant name in output (default: false)
+/// - `alias` - Custom type alias name (default: Res)
+///
+/// ---
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use resext::resext;
+///
+/// #[resext(alias = AppResult)]
+/// enum AppError {
+///     Io(std::io::Error),
+///     Network(reqwest::Error),
+/// }
+///
+/// fn example() -> AppResult<()> {
+///     std::fs::read("file.txt")
+///         .context("Failed to read file")?;
+///     Ok(())
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -142,6 +232,11 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl std::error::Error for #enum_name {}
 
+        /// Wrapper type that holds your error with optional context messages.
+        ///
+        /// This type is automatically created when you use `.context()` or
+        /// `.with_context()` on a Result.
+        #[doc(hidden)]
         #vis struct ResErr {
             msg: Vec<u8>,
             #vis source: #enum_name
@@ -184,6 +279,19 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl ResErr {
+            /// Helper method for constructing ResErr without using `.context()` or
+            /// `.with_context()` on a Result.
+            ///
+            /// This method:
+            /// ```rust,ignore
+            /// ResErr::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
+            /// ```
+            ///
+            /// - is the same as:
+            /// ```rust,ignore
+            /// ResErr { b"Failed to read file".to_vec(),
+            /// ErrorEnum::Io(std::io::Error::other("")) }
+            /// ```
             #vis fn new<E>(msg: Vec<u8>, source: E) -> Self where #enum_name: From<E> {
                 Self { msg, source: #enum_name::from(source) }
             }

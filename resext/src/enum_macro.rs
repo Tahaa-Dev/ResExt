@@ -149,6 +149,19 @@ macro_rules! ResExt {
         }
 
         impl ResErr {
+            /// Helper method for constructing ResErr without using `.context()` or
+            /// `.with_context()` on a Result.
+            ///
+            /// This method:
+            /// ```rust,ignore
+            /// ResErr::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
+            /// ```
+            ///
+            /// - is the same as:
+            /// ```rust,ignore
+            /// ResErr { b"Failed to read file".to_vec(),
+            /// ErrorEnum::Io(std::io::Error::other("")) }
+            /// ```
             $vis fn new<E>(msg: Vec<u8>, source: E) -> Self where $name: From<E> {
                 Self { msg, source: $name::from(source) }
             }
