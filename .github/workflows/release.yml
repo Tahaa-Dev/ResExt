@@ -23,7 +23,19 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
     
-    - name: Publish to crates.io
+    - name: Publish resext-macro
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      run: cargo publish
+      run: |
+        cd resext-macro
+        cargo publish --token $CARGO_REGISTRY_TOKEN
+    
+    - name: Wait for crates.io propagation
+      run: sleep 60
+    
+    - name: Publish resext
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      run: |
+        cd resext
+        cargo publish --token $CARGO_REGISTRY_TOKEN

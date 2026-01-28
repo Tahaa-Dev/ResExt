@@ -1,3 +1,4 @@
+#![cfg(feature = "declarative")]
 use resext::{ResExt, panic_if};
 
 ResExt! {
