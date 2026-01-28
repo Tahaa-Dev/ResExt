@@ -23,6 +23,10 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
     
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
     - name: Publish resext-macro
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -33,9 +37,15 @@ jobs:
     - name: Wait for crates.io propagation
       run: sleep 60
     
+    - name: Update resext dependency to new version
+      run: |
+        cd resext
+        # Update resext-macro dependency to new version
+        sed -i 's/resext-macro = { version = "[^"]*"/resext-macro = { version = "${{ steps.version.outputs.VERSION }}"/' Cargo.toml
+    
     - name: Publish resext
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       run: |
         cd resext
-        cargo publish --token $CARGO_REGISTRY_TOKEN
+        cargo publish --token $CARGO_REGISTRY_TOKEN --allow-dirty
