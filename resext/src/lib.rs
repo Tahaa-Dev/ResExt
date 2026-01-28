@@ -1,154 +1,257 @@
-//! # ResExt - Low-Allocation Error Handling for Rust
+//! Context-rich error handling for Rust with zero-cost abstractions.
 //!
-//! ResExt provides a declarative macro for generating complete error handling
-//! infrastructure with minimal runtime overhead and zero external dependencies.
+//! ResExt provides ergonomic error handling with context chains, similar to anyhow
+//! but with explicit error types. Choose between a proc macro for clean syntax and
+//! custom formatting or
+//! a declarative macro for zero dependencies.
 //!
-//! ## Features
-//!
-//! - **Zero allocations** for error construction (allocations only on context chains)
-//! - **Local code generation** - no orphan rule violations
-//! - **Explicit error types** - know exactly what can fail
-//! - **Context chains** - add debugging information without losing the root cause
-//! - **Single macro** - everything you need in one invocation
-//!
-//! ## Quick Start
+//! # Quick Start
 //!
 //! ```rust,ignore
-//! use resext::ResExt;
+//! use resext::resext;
 //!
-//! ResExt! {
-//!     pub enum MyError {
-//!         Io(std::io::Error),
-//!         Parse(serde_json::Error),
-//!         Network(reqwest::Error),
-//!         NotFound,
-//!     }
+//! #[resext]
+//! enum AppError {
+//!     Io(std::io::Error),
+//!     Parse(std::num::ParseIntError),
 //! }
 //!
-//! fn read_config(path: &str) -> Res<Config> {
-//!     let content = std::fs::read_to_string(path)
+//! fn read_config() -> Res<String> {
+//!     let content = std::fs::read_to_string("config.toml")
 //!         .context("Failed to read config file")?;
-//!
-//!     let config = serde_json::from_str(&content)
-//!         .with_context(|| format!("Failed to parse config from: {}", path))?;
-//!
-//!     Ok(config)
+//!     
+//!     let value: i32 = content.trim().parse()
+//!         .context("Failed to parse config value")?;
+//!     
+//!     Ok(content)
 //! }
 //! ```
 //!
-//! ## What Gets Generated
+//! ---
 //!
-//! The `ResExt!` macro generates:
+//! # Features
 //!
-//! 1. Your error enum with `Display`, `Debug`, and `Error` trait implementations
-//! 2. `ResErr` struct that wraps your enum with context messages
-//! 3. `From` implementations for automatic error conversion
-//! 4. `ResExt` trait with context methods (`.context()`, `.with_context()`, etc.)
-//! 5. `Res<T>` type alias (or custom alias via `as YourAlias`)
+//! - **Type-safe errors** - Explicit error enums, no type erasure
+//! - **Context chains** - Add context to errors as they propagate
+//! - **Custom formatting** - Configure error display with attributes
+//! - **Zero dependencies** - Provides declarative macro with no dependencies
+//! - **Proc macro** - Clean syntax with `#[resext]` attribute (default)
 //!
-//! All code is generated **locally in your crate**, avoiding orphan rule issues.
+//! ---
 //!
-//! ## Design Philosophy
+//! # Proc Macro (Default)
 //!
-//! ResExt prioritizes:
-//! 1. **Performance** - minimal allocations
-//! 2. **Explicitness** - you declare exactly what errors can occur
-//! 3. **Debuggability** - context chains show the full error path
-//! 4. **Simplicity** - one macro, zero configuration
+//! The proc macro provides clean syntax with full customization:
 //!
-//! Ergonomics are important but secondary to the above goals.
+//! ```rust,ignore
+//! use resext::resext;
 //!
-//! ## Examples
+//! #[resext(
+//!     prefix = "ERROR: ",
+//!     msg_delimiter = " -> ",
+//!     include_variant = true,
+//!     alias = AppResult
+//! )]
+//! enum MyError {
+//!     Network(reqwest::Error),
+//!     Database { error: sqlx::Error },
+//! }
+//! ```
 //!
-//! ### Basic Error Handling
+//! ## Attribute Options
+//!
+//! - `prefix` - String prepended to entire error message
+//! - `suffix` - String appended to entire error message
+//! - `msg_prefix` - String prepended to each context message
+//! - `msg_suffix` - String appended to each context message
+//! - `msg_delimiter` - Separator between context messages (default: " - ")
+//! - `source_prefix` - String prepended to source error (default: "Error: ")
+//! - `include_variant` - Include variant name in Display output (default: false)
+//! - `alias` - Custom type alias name (default: `Res`)
+//!
+//! ---
+//!
+//! # Declarative Macro (Zero Dependencies)
+//!
+//! For projects that need minimal dependencies:
+//!
+//! ```toml
+//! [dependencies]
+//! resext = { version = "0.8", default-features = false, features = ["declarative"] }
+//! ```
 //!
 //! ```rust,ignore
 //! use resext::ResExt;
 //!
 //! ResExt! {
-//!     enum FileError {
+//!     enum MyError {
 //!         Io(std::io::Error),
-//!         InvalidFormat,
+//!         Parse(std::num::ParseIntError),
 //!     }
-//! }
-//!
-//! fn process_file(path: &str) -> Res<Vec<u8>> {
-//!     std::fs::read(path).context("Failed to read file")
 //! }
 //! ```
 //!
-//! ### Adding Dynamic Context
+//! ---
+//!
+//! # Context Methods
+//!
+//! ## `.context(msg)`
+//!
+//! Add static context to an error:
 //!
 //! ```rust,ignore
-//! use resext::ResExt;
+//! use resext::resext;
+//!
+//! #[resext] enum E { Io(std::io::Error) }
+//!
+//! std::fs::read("file.txt")
+//!     .context("Failed to read file")?;
+//! Ok::<(), ResErr>(())
+//! ```
+//!
+//! ## `.with_context(|| msg)`
+//!
+//! Add dynamic context (computed only on error):
+//!
+//! ```rust,ignore
+//! use resext::resext;
+//!
+//! #[resext] enum E { Io(std::io::Error) }
+//!
+//! let path = "file.txt";
+//! std::fs::read(path)
+//!     .with_context(|| format!("Failed to read {}", path))?;
+//! Ok::<(), ResErr>(())
+//! ```
+//!
+//! ## `.or_exit(code)`
+//!
+//! Exit process with given code on error:
+//!
+//! ```rust,ignore
+//! use resext::resext;
+//!
+//! #[resext] enum E { Io(std::io::Error) }
+//!
+//! fn load_config() -> Res<()> { Ok(()) }
+//!
+//! let config = load_config().or_exit(1);
+//! ```
+//!
+//! ## `.better_expect(|| msg, code)`
+//!
+//! Like `or_exit` but with custom message:
+//!
+//! ```rust,ignore
+//! use resext::resext;
+//!
+//! #[resext] enum E { Io(std::io::Error) }
+//!
+//! fn load_critical_data() -> Res<()> { Ok(()) }
+//!
+//! let data = load_critical_data()
+//!     .better_expect(|| "FATAL: Cannot start without data", 1);
+//! ```
+//!
+//! ---
+//!
+//! # Error Display Format
+//!
+//! Errors are displayed with context chains:
+//!
+//! ```text
+//! Failed to load application
+//!  - Failed to read config file
+//!  - Failed to open file
+//! Error: No such file or directory
+//! ```
+//!
+//! With `include_variant = true`:
+//!
+//! ```text
+//! Failed to load application
+//!  - Failed to read config file
+//! Error: Io: No such file or directory
+//! ```
+//!
+//! ---
+//!
+//! # Examples
+//!
+//! ## Basic Error Handling
+//!
+//! ```rust,ignore
+//! use resext::resext;
+//!
+//! #[resext]
+//! enum ConfigError {
+//!     Io(std::io::Error),
+//!     Parse(toml::de::Error),
+//! }
+//!
+//! fn load_config(path: &str) -> Res<Config> {
+//!     let content = std::fs::read_to_string(path)
+//!         .context("Failed to read config")?;
+//!     
+//!     toml::from_str(&content)
+//!         .with_context(|| format!("Failed to parse {}", path))
+//! }
+//! ```
+//!
+//! ## Multiple Error Types
+//!
+//! ```rust,ignore
+//! use resext::resext;
+//!
+//! #[resext(alias = ApiResult)]
+//! enum ApiError {
+//!     Network(reqwest::Error),
+//!     Database(sqlx::Error),
+//!     Json(serde_json::Error),
+//! }
+//!
+//! async fn fetch_user(id: u64) -> ApiResult<User> {
+//!     let response = reqwest::get(format!("/users/{}", id))
+//!         .await
+//!         .context("Failed to fetch user")?;
+//!     
+//!     let user = response.json()
+//!         .await
+//!         .context("Failed to parse user data")?;
+//!     
+//!     Ok(user)
+//! }
+//! ```
+//!
+//! ---
+//!
+//! # Migration from v0.7.0
+//!
+//! Old declarative syntax:
+//!
+//! ```rust,ignore
 //! ResExt! {
 //!     enum MyError {
 //!         Io(std::io::Error),
 //!     }
 //! }
-//! fn read_multiple_files(paths: &[&str]) -> Res<Vec<Vec<u8>>> {
-//!     paths.iter()
-//!         .map(|path| {
-//!             std::fs::read(path)
-//!                 .with_context(|| format!("Failed to read: {}", path))
-//!         })
-//!         .collect()
-//! }
 //! ```
 //!
-//! ### Custom Type Alias
+//! New proc macro syntax:
 //!
 //! ```rust,ignore
-//! use resext::ResExt;
-//!
-//! ResExt! {
-//!     enum AppError {
-//!         Config(std::io::Error),
-//!         Database(String),
-//!     }
-//!     as AppResult  // Custom alias instead of Res
-//! }
-//!
-//! fn load_config() -> AppResult<Config> {
-//!     // ...
-//! #   Ok(Config {})
-//! }
-//! # struct Config {}
-//! ```
-//!
-//! ### Exit on Error (CLI Tools)
-//!
-//! ```rust,ignore
-//! use resext::ResExt;
-//! ResExt! {
-//!     enum IoError {
-//!         Io(std::io::Error),
-//!     }
-//! }
-//!
-//! fn main() {
-//!     let config = std::fs::read_to_string("config.toml")
-//!         .context("Failed to load config")
-//!         .or_exit(1);  // Exit with code 1 on error
-//!
-//!     // Or with custom message:
-//!     let data = std::fs::read("data.bin")
-//!         .better_expect(|| "Critical: Cannot start without data.bin", 1);
+//! #[resext]
+//! enum MyError {
+//!     Io(std::io::Error),
 //! }
 //! ```
 //!
-//! ## Performance
+//! To keep using the declarative macro:
 //!
-//! ResExt is designed for minimal overhead:
-//!
-//! - **Error construction:** Zero allocations (just wrapping the inner error)
-//! - **Context chains:** One allocation per `.context()` call (reuses existing buffer)
-//! - **Error propagation:** Zero-cost (same as `?` operator)
-//!
-//! Benchmarks (compared to plain `Result<T, E>`):
-//! - Error construction: ~0ns overhead
-//! - Single context: ~50ns (one allocation)
-//! - Context chain (5 deep): ~150ns (buffer reuse)
+//! ```toml
+//! [dependencies]
+//! resext = { version = "0.8", default-features = false, features = ["declarative"] }
+//! ```
 
 mod enum_macro;
 mod throw_err;

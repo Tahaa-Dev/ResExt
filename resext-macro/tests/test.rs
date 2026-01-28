@@ -1,6 +1,9 @@
 use resext_macro::resext;
 
-#[resext(alias = Resext, msg_delimiter = " • ")]
+#[resext(
+    alias = Resext,
+    msg_delimiter = " • "
+)]
 enum ErrTypes {
     Custom(String),
     Io { error: std::io::Error },

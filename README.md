@@ -5,87 +5,99 @@
 [![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<div style="display:flex; justify-content:center"><div style="width:90%; height:2px;background-color:#5e5e5e; border-radius:1px;"/></div>
-
-***Simple, lightweight, low-alloc error handling crate for Rust.***
-
-ResExt provides a declarative macro (`ResExt! {}`) for easy, ergonomic and performant error-handling.
+ResExt provides ergonomic error handling with context chains, similar to anyhow but with explicit error types. Choose between a proc macro for clean syntax and custom formatting or a declarative macro for zero dependencies.
 
 ---
 
 ## Quick Start
 
-Add ResExt to your dependencies:
+Run:
 
-```sh
+```bash
 cargo add resext
 ```
 
-- or add this to your Cargo.toml:
+- Or add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-resext = "0.7.0"
+resext = "0.8"
 ```
-
-### Basic Usage
-
-```rust
-use resext::ResExt;
-
-ResExt! {
-    enum MyError {
-        Io(std::io::Error),
-        Env(std::env::VarError),
-        Network(reqwest::Error),
-        Other,
-    }
-}
-```
-
-This code generates:
-
-1. `MyError` enum with `Error`, `Debug` and `Display` implementations
-2. `From<T> for MyError` for types of the enum's tuple variants
-3. `ResErr` struct for context wrapper around `MyError`
-4. `ResExt` trait with context methods
-5. `Res<T>` type alias for `Result<T, MyError>`
 
 ---
 
-## Example
+## Usage
 
 ```rust
-use resext::ResExt;
-use std::io;
-use crate::Data;
+use resext::resext;
 
-ResExt! {
-    enum ErrorTypes {
-        Io(io::Error),
-        Network(reqwest::Error),
-        Other,
-    }
+#[resext]
+enum AppError {
+    Io(std::io::Error),
+    Parse(std::num::ParseIntError),
 }
 
-async fn parse_page(url: String) -> Res<Data> {
-    let content = reqwest::get(url).await
-        .with_context(|| format!("Failed to fetch URL: {}", url))?;
-
-    let data: Data = crate::parse_page_content(content)
-        .context("Failed to parse page data")?;
-
-    Ok(data)
+fn read_config() -> Res<String> {
+    let content = std::fs::read_to_string("config.toml")
+        .context("Failed to read config file")?;
+    
+    let value: i32 = content.trim().parse()
+        .context("Failed to parse config value")?;
+    
+    Ok(content)
 }
 ```
 
+## Features
 
-ResExt uses a unique approach for error-handling that provides `anyhow` methods and convenient error-propagation as well as `thiserror`'s performance and concrete types with a macro that generates both methods and the error enum locally in your project.
+- **Type-safe errors** - Explicit error enums, no type erasure
+- **Context chains** - Add context to errors as they propagate
+- **Custom formatting** - Configure error display with attributes
+- **Zero dependencies** - Provides declarative macro with no dependencies
+- **Proc macro** - Clean syntax with `#[resext]` attribute (default)
 
 ---
-## Notes
 
-- ResExt is still in heavy development, wait for v1.0.0 to rely on it for production code.
-- For changes, see <a href="CHANGELOG.md">CHANGELOG.md</a>.
-- For contribution details, see <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.
-- This project is licensed under the <a href="LICENSE">MIT license</a>.
+## Customization
+
+```rust
+#[resext(
+    prefix = "ERROR: ",
+    msg_delimiter = " -> ",
+    include_variant = true,
+    alias = AppResult
+)]
+enum MyError {
+    Network(reqwest::Error),
+    Database(sqlx::Error),
+}
+```
+
+---
+
+## Feature Flags
+
+- `proc-macro` (default) - Use proc macro for clean syntax and custom formatting
+- `declarative` - Use declarative macro for zero dependencies
+
+---
+
+## Documentation
+
+- [Main crate documentation](resext/README.md)
+- [Proc macro documentation](resext-macro/README.md)
+
+---
+
+## License
+
+**MIT** license - See [LICENSE](LICENSE) for details.
+
+---
+
+## Links
+
+- [Crates.io](https://crates.io/crates/resext)
+- [Documentation](https://docs.rs/resext)
+- [Repository](https://github.com/Tahaa-Dev/ResExt)
+- [Changelog](CHANGELOG.md)
