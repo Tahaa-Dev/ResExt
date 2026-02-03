@@ -1,8 +1,8 @@
 use resext_macro::resext;
 
 #[resext(
-    alias = Resext,
-    msg_delimiter = " • "
+    alias = Resext
+    msg_delimiter = " ● "
 )]
 enum ErrTypes {
     Custom(String),
@@ -14,7 +14,7 @@ enum ErrTypes {
 fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
-        let _ = std::fs::read(path).with_context(|| format!("Failed to read file: {}", path))?;
+        let _ = std::fs::read(path).with_context(format_args!("Failed to read file: {}", path))?;
 
         let _: Resext<()> = Err("TEST".to_string()).context("Custom error")?;
 
@@ -41,13 +41,13 @@ fn test_long_context() -> Resext<()> {
 fn test_error_display_format() {
     let result: Resext<_> = std::fs::read("non_existent")
         .context("Failed to read config")
-        .with_context(|| "Failed to load application".to_string());
+        .with_context(format_args!("Failed to load application"));
 
     let err = result.unwrap_err();
     let output = format!("{}", err);
 
     assert!(output.contains("Failed to read config"));
-    assert!(output.contains(" • Failed to load application"));
+    assert!(output.contains(" ● Failed to load application"));
     assert!(output.contains("Error:"));
 }
 
@@ -64,9 +64,9 @@ fn test_error_debug_format() {
 
 #[test]
 fn test_new_method() {
-    let res = ResErr::new(Vec::new(), std::io::Error::other("TEST"));
+    let res = ResextErr::new(Vec::new(), std::io::Error::other("TEST"));
     let res2 =
-        ResErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
+        ResextErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
 
     assert_eq!(res.to_string(), "Error: TEST");
     assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");

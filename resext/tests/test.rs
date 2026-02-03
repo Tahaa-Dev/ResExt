@@ -14,7 +14,9 @@ ResExt! {
 fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
-        let _ = std::fs::read(path).with_context(|| format!("Failed to read file: {}", path))?;
+        std::fs::read(path)
+            .with_context(format_args!("Failed to read file: {}", path))
+            .with_context(format_args!("File name: {} is incorrect", path))?;
 
         std::env::var("non_existent").context("Failed to read env variable")?;
 
@@ -51,7 +53,7 @@ fn test_panic_methods() {
 fn test_error_display_format() {
     let result: Resext<_> = std::fs::read("non_existent")
         .context("Failed to read config")
-        .with_context(|| "Failed to load application".to_string());
+        .with_context(format_args!("Failed to load application"));
 
     let err = result.unwrap_err();
     let output = format!("{}", err);

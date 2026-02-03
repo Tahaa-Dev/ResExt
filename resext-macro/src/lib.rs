@@ -18,10 +18,10 @@
 //! This expands to approximately 200 lines of boilerplate including:
 //!
 //! - `Display` and `Error` trait implementations
-//! - `ResErr` wrapper struct with context storage
+//! - `#struct_name` wrapper struct with context storage
 //! - `ResExt` trait with context methods
 //! - `From` implementations for automatic conversion
-//! - Type alias for `Result<T, ResErr>`
+//! - Type alias for `Result<T, #struct_name>`
 //!
 //! # Attribute Options
 //!
@@ -102,6 +102,9 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let enum_name = &input.ident;
     let vis = &input.vis;
 
+    let alias = args.alias.unwrap_or_else(|| quote! { Res });
+    let struct_name = quote::format_ident!("{}Err", alias.to_string());
+
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
         _ => {
@@ -179,7 +182,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl From<#field_type> for ResErr {
+                    impl From<#field_type> for #struct_name {
                         fn from(value: #field_type) -> Self {
                             Self { msg: Vec::new(), source: #enum_name::#variant_name(value) }
                         }
@@ -198,7 +201,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl From<#field_type> for ResErr {
+                    impl From<#field_type> for #struct_name {
                         fn from(value: #field_type) -> Self {
                             Self { msg: Vec::new(), source: #enum_name::#variant_name { #field_name: value } }
                         }
@@ -216,7 +219,6 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let msg_suffix = args.msg_suffix.unwrap_or_default();
     let msg_delimiter = args.msg_delimiter.unwrap_or_else(|| String::from(" - "));
     let source_prefix = args.source_prefix.unwrap_or_else(|| String::from("Error: "));
-    let alias = args.alias.unwrap_or_else(|| quote! { Res });
 
     let expanded = quote! {
         #[derive(Debug)]
@@ -237,12 +239,19 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// This type is automatically created when you use `.context()` or
         /// `.with_context()` on a Result.
         #[doc(hidden)]
-        #vis struct ResErr {
+        #vis struct #struct_name {
             msg: Vec<u8>,
             #vis source: #enum_name
         }
 
-        impl std::fmt::Display for ResErr {
+        impl core::fmt::Write for #struct_name {
+            fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                self.msg.extend_from_slice(s.as_bytes());
+                Ok(())
+            }
+        }
+
+        impl std::fmt::Display for #struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 if self.msg.is_empty() {
                     write!(f, "{}{}{}", &#source_prefix, &self.source, &#suffix)
@@ -260,7 +269,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl std::fmt::Debug for ResErr {
+        impl std::fmt::Debug for #struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 if self.msg.is_empty() {
                     write!(f, "{}{:?}{}", &#source_prefix, &self.source, &#suffix)
@@ -278,26 +287,26 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl ResErr {
-            /// Helper method for constructing ResErr without using `.context()` or
+        impl #struct_name {
+            /// Helper method for constructing #struct_name without using `.context()` or
             /// `.with_context()` on a Result.
             ///
             /// This method:
             /// ```rust,ignore
-            /// ResErr::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
+            /// #struct_name::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
             /// ```
             ///
             /// - is the same as:
             /// ```rust,ignore
-            /// ResErr { b"Failed to read file".to_vec(),
+            /// #struct_name { b"Failed to read file".to_vec(),
             /// ErrorEnum::Io(std::io::Error::other("")) }
             /// ```
             #vis fn new<E>(msg: Vec<u8>, source: E) -> Self where #enum_name: From<E> {
-                Self { msg, source: #enum_name::from(source) }
+                Self { msg: msg, source: #enum_name::from(source) }
             }
         }
 
-        impl From<#enum_name> for ResErr {
+        impl From<#enum_name> for #struct_name {
             fn from(value: #enum_name) -> Self {
                 Self { msg: Vec::new(), source: value }
             }
@@ -317,7 +326,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///     .context("Failed to read file")?;
         /// ```
         #[doc(hidden)]
-        #vis trait ResExt<T> {
+        #vis trait ResExt<'r, T> {
             /// Add a static context message to an error.
             ///
             /// The message is only allocated if an error occurs.
@@ -329,7 +338,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             ///     .context("Failed to read config")?;
             /// ```
             #[doc(hidden)]
-            fn context(self, msg: &str) -> Result<T, ResErr>;
+            fn context(self, msg: &str) -> Result<T, #struct_name>;
 
             /// Add a dynamic context message (computed only on error).
             ///
@@ -342,7 +351,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             ///     .with_context(|| format!("Failed to read: {}", path))?;
             /// ```
             #[doc(hidden)]
-            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr>;
+            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name>;
 
             /// Add raw bytes as context (must be valid UTF-8).
             ///
@@ -350,7 +359,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             ///
             /// The bytes must be valid UTF-8
             #[doc(hidden)]
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr>;
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name>;
 
             /// Exit the process with the given code if the result is an error.
             ///
@@ -376,69 +385,38 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
         }
 
-        impl<T> ResExt<T> for Result<T, ResErr> {
-            fn context(self, msg: &str) -> Result<T, ResErr> {
+        impl<'r, T> ResExt<'r, T> for Result<T, #struct_name> {
+            fn context(self, msg: &str) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
+                        use core::fmt::Write;
                         if err.msg.is_empty() {
-                            err.msg.extend_from_slice(msg.as_bytes());
+                            let _ = write!(&mut err, "{}", msg);
                         } else {
-                            let bytes = msg.as_bytes();
-                            let len = bytes.len();
-                            let bytes2 = #msg_delimiter.as_bytes();
-                            let len2 = bytes2.len();
-                            let bytes3 = #msg_prefix.as_bytes();
-                            let len3 = bytes3.len();
-                            let bytes4 = #msg_suffix.as_bytes();
-                            let len4 = bytes4.len();
-                            let cap = err.msg.capacity();
-                            if cap < len + len2 + len3 + len4 + 1 {
-                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
-                            }
-                            err.msg.push(b'\n');
-                            err.msg.extend_from_slice(bytes2);
-                            err.msg.extend_from_slice(bytes3);
-                            err.msg.extend_from_slice(bytes);
-                            err.msg.extend_from_slice(bytes4);
+                            let _ = write!(&mut err, "\n{}{}{}{}", #msg_delimiter, #msg_prefix, msg, #msg_suffix);
                         }
                         Err(err)
                     }
                 }
             }
 
-            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr> {
+            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
+                        use core::fmt::Write;
                         if err.msg.is_empty() {
-                            err.msg.extend_from_slice(f().as_bytes());
+                            let _ = write!(&mut err, "{}", args);
                         } else {
-                            let s = f();
-                            let bytes = s.as_bytes();
-                            let len = bytes.len();
-                            let bytes2 = #msg_delimiter.as_bytes();
-                            let len2 = bytes2.len();
-                            let bytes3 = #msg_prefix.as_bytes();
-                            let len3 = bytes3.len();
-                            let bytes4 = #msg_suffix.as_bytes();
-                            let len4 = bytes4.len();
-                            let cap = err.msg.capacity();
-                            if cap < len + len2 + len3 + len4 + 1 {
-                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
-                            }
-                            err.msg.push(b'\n');
-                            err.msg.extend_from_slice(bytes2);
-                            err.msg.extend_from_slice(bytes3);
-                            err.msg.extend_from_slice(bytes);
-                            err.msg.extend_from_slice(bytes4);
+                            let _ = write!(&mut err, "\n{}{}{}{}", #msg_delimiter, #msg_prefix, args, #msg_suffix);
                         }
                         Err(err)
                     }
                 }
             }
 
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr> {
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
@@ -485,28 +463,33 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl<T, E: std::fmt::Display> ResExt<T> for Result<T, E>
+        impl<'r, T, E: std::fmt::Display> ResExt<'r, T> for Result<T, E>
         where
             #enum_name: From<E>,
         {
-            fn context(self, msg: &str) -> Result<T, ResErr> {
+            fn context(self, msg: &str) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
-                    Err(err) => Err(ResErr { msg: msg.as_bytes().to_vec(), source: err.into() }),
+                    Err(err) => Err(#struct_name { msg: msg.as_bytes().to_vec(), source: err.into() }),
                 }
             }
 
-            fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr> {
+            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
-                    Err(err) => Err(ResErr { msg: f().as_bytes().to_vec(), source: err.into() }),
+                    Err(err) => {
+                        use core::fmt::Write;
+                        let mut err_buf = #struct_name::new(Vec::new(), err);
+                        let _ = write!(&mut err_buf, "{}", args);
+                        Err(err_buf)
+                    }
                 }
             }
 
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, ResErr> {
+            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
-                    Err(err) => Err(ResErr { msg: bytes.to_vec(), source: err.into() }),
+                    Err(err) => Err(#struct_name { msg: bytes.to_vec(), source: err.into() }),
                 }
             }
 
@@ -528,7 +511,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        #vis type #alias<T> = Result<T, ResErr>;
+        #vis type #alias<T> = Result<T, #struct_name>;
     };
 
     if let Some(error) = errors {
