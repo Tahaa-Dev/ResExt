@@ -76,10 +76,9 @@ fn test_error_debug_format() {
 
 #[test]
 fn test_new_method() {
-    let res = ResErr::new(Vec::new(), std::io::Error::other("TEST"));
-    let res2 =
-        ResErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
+    let res = ResErr::new(&[], std::io::Error::other("TEST"));
+    let res2 = ResErr::new(b"Test constructor `new()` method", std::io::Error::other("TEST"));
 
-    assert_eq!(res.to_string(), "TEST");
     assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");
+    assert_eq!(res.to_string(), "TEST");
 }
