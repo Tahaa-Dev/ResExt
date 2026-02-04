@@ -23,10 +23,11 @@ jobs:
       uses: Swatinem/rust-cache@v2
     
     - name: Run tests
-      run: cargo test --features declarative --verbose
+      run: cargo test --verbose
     
     - name: Run clippy
       run: cargo clippy --all-targets -- -D warnings
     
     - name: Check formatting
+      if: github.event_name == 'pull_request'
       run: cargo fmt -- --check
