@@ -53,7 +53,7 @@ use syn::{
 /// ```rust,ignore
 /// #[resext(
 ///     prefix = "ERROR: ",
-///     msg_delimiter = " -> ",
+///     delimiter = " -> ",
 ///     include_variant = true
 /// )]
 /// enum MyError {
@@ -70,7 +70,7 @@ use syn::{
 /// - `suffix` - Append to all error messages
 /// - `msg_prefix` - Prepend to each context message
 /// - `msg_suffix` - Append to each context message
-/// - `msg_delimiter` - Separator between contexts (default: " - ")
+/// - `delimiter` - Separator between contexts (default: " - ")
 /// - `source_prefix` - Prepend to underlying error (default: "Error: ")
 /// - `include_variant` - Show variant name in output (default: false)
 /// - `alias` - Custom type alias name (default: Res)
@@ -104,6 +104,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let alias = args.alias.unwrap_or_else(|| quote! { Res });
     let struct_name = quote::format_ident!("{}Err", alias.to_string());
+    let buf_name = quote::format_ident!("{}Buf", alias.to_string());
 
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
@@ -184,7 +185,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     impl From<#field_type> for #struct_name {
                         fn from(value: #field_type) -> Self {
-                            Self { msg: Vec::new(), source: #enum_name::#variant_name(value) }
+                            Self { msg: #buf_name::new(), source: #enum_name::#variant_name(value) }
                         }
                     }
                 })
@@ -203,7 +204,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     impl From<#field_type> for #struct_name {
                         fn from(value: #field_type) -> Self {
-                            Self { msg: Vec::new(), source: #enum_name::#variant_name { #field_name: value } }
+                            Self { msg: #buf_name::new(), source: #enum_name::#variant_name { #field_name: value } }
                         }
                     }
                 })
@@ -217,8 +218,9 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let suffix = args.suffix.unwrap_or_default();
     let msg_prefix = args.msg_prefix.unwrap_or_default();
     let msg_suffix = args.msg_suffix.unwrap_or_default();
-    let msg_delimiter = args.msg_delimiter.unwrap_or_else(|| String::from(" - "));
+    let delimiter = args.delimiter.unwrap_or_else(|| String::from(" - "));
     let source_prefix = args.source_prefix.unwrap_or_else(|| String::from("Error: "));
+    let buf_size = args.buf_size.unwrap_or(64);
 
     let expanded = quote! {
         #[derive(Debug)]
@@ -240,30 +242,29 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// `.with_context()` on a Result.
         #[doc(hidden)]
         #vis struct #struct_name {
-            msg: Vec<u8>,
+            msg: #buf_name,
             #vis source: #enum_name
         }
 
         impl core::fmt::Write for #struct_name {
             fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                self.msg.extend_from_slice(s.as_bytes());
-                Ok(())
+                self.msg.write_str(s)
             }
         }
 
         impl std::fmt::Display for #struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                if self.msg.is_empty() {
-                    write!(f, "{}{}{}", &#source_prefix, &self.source, &#suffix)
+                if self.msg.curr_pos == 0 {
+                    write!(f, "{}{}{}", #source_prefix, &self.source, #suffix)
                 } else {
                     write!(
                         f,
                         "{}{}\n{}{}{}",
-                        &#prefix,
-                        unsafe { std::str::from_utf8_unchecked(&self.msg) },
-                        &#source_prefix,
-                        &self.source,
-                        &#suffix,
+                        #prefix,
+                        unsafe { std::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        #source_prefix,
+                        self.source,
+                        #suffix,
                     )
                 }
             }
@@ -271,17 +272,17 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl std::fmt::Debug for #struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                if self.msg.is_empty() {
-                    write!(f, "{}{:?}{}", &#source_prefix, &self.source, &#suffix)
+                if self.msg.curr_pos == 0 {
+                    write!(f, "{}{:?}{}", #source_prefix, &self.source, #suffix)
                 } else {
                     write!(
                         f,
                         "{}{}\n{}{:?}{}",
-                        &#prefix,
-                        unsafe { std::str::from_utf8_unchecked(&self.msg) },
-                        &#source_prefix,
-                        &self.source,
-                        &#suffix,
+                        #prefix,
+                        unsafe { std::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        #source_prefix,
+                        self.source,
+                        #suffix,
                     )
                 }
             }
@@ -301,14 +302,17 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// #struct_name { b"Failed to read file".to_vec(),
             /// ErrorEnum::Io(std::io::Error::other("")) }
             /// ```
-            #vis fn new<E>(msg: Vec<u8>, source: E) -> Self where #enum_name: From<E> {
-                Self { msg: msg, source: #enum_name::from(source) }
+            #vis fn new<E>(msg: &str, source: E) -> Self where #enum_name: From<E> {
+                use core::fmt::Write;
+                let mut buf = #buf_name::new();
+                let _ = buf.write_str(msg);
+                Self { msg: buf, source: #enum_name::from(source) }
             }
         }
 
         impl From<#enum_name> for #struct_name {
             fn from(value: #enum_name) -> Self {
-                Self { msg: Vec::new(), source: value }
+                Self { msg: #buf_name::new(), source: value }
             }
         }
 
@@ -391,10 +395,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
                         use core::fmt::Write;
-                        if err.msg.is_empty() {
+                        if err.msg.curr_pos == 0 {
                             let _ = write!(&mut err, "{}", msg);
                         } else {
-                            let _ = write!(&mut err, "\n{}{}{}{}", #msg_delimiter, #msg_prefix, msg, #msg_suffix);
+                            let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, msg, #msg_suffix);
                         }
                         Err(err)
                     }
@@ -406,10 +410,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
                         use core::fmt::Write;
-                        if err.msg.is_empty() {
+                        if err.msg.curr_pos == 0 {
                             let _ = write!(&mut err, "{}", args);
                         } else {
-                            let _ = write!(&mut err, "\n{}{}{}{}", #msg_delimiter, #msg_prefix, args, #msg_suffix);
+                            let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, args, #msg_suffix);
                         }
                         Err(err)
                     }
@@ -420,21 +424,13 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
-                        if err.msg.is_empty() {
+                        if err.msg.curr_pos == 0 {
                             err.msg.extend_from_slice(bytes);
                         } else {
-                            let len = bytes.len();
-                            let bytes2 = #msg_delimiter.as_bytes();
-                            let len2 = bytes2.len();
+                            let bytes2 = #delimiter.as_bytes();
                             let bytes3 = #msg_prefix.as_bytes();
-                            let len3 = bytes3.len();
                             let bytes4 = #msg_suffix.as_bytes();
-                            let len4 = bytes4.len();
-                            let cap = err.msg.capacity();
-                            if cap < len + len2 + len3 + len4 + 1 {
-                                err.msg.reserve_exact((len + len2 + len3 + len4 + 1) - cap);
-                            }
-                            err.msg.push(b'\n');
+                            err.msg.extend_from_slice(b"\n");
                             err.msg.extend_from_slice(bytes2);
                             err.msg.extend_from_slice(bytes3);
                             err.msg.extend_from_slice(bytes);
@@ -470,7 +466,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn context(self, msg: &str) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
-                    Err(err) => Err(#struct_name { msg: msg.as_bytes().to_vec(), source: err.into() }),
+                    Err(err) => {
+                        use core::fmt::Write;
+                        let mut buf = #buf_name::new();
+                        let _ = write!(&mut buf, "{}", msg);
+                        Err(#struct_name { msg: buf, source: err.into() })
+                    }
                 }
             }
 
@@ -479,9 +480,9 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Ok(ok) => Ok(ok),
                     Err(err) => {
                         use core::fmt::Write;
-                        let mut err_buf = #struct_name::new(Vec::new(), err);
-                        let _ = write!(&mut err_buf, "{}", args);
-                        Err(err_buf)
+                        let mut buf = #buf_name::new();
+                        let _ = write!(&mut buf, "{}", args);
+                        Err(#struct_name { msg: buf, source: err.into() })
                     }
                 }
             }
@@ -489,7 +490,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
-                    Err(err) => Err(#struct_name { msg: bytes.to_vec(), source: err.into() }),
+                    Err(err) => {
+                        use core::fmt::Write;
+                        let mut buf = #buf_name::new();
+                        buf.extend_from_slice(bytes);
+                        Err(#struct_name { msg: buf, source: err.into() })
+                    }
                 }
             }
 
@@ -512,6 +518,69 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #vis type #alias<T> = Result<T, #struct_name>;
+
+        struct #buf_name {
+            curr_pos: u16,
+            buf: [u8; #buf_size],
+        }
+
+        impl #buf_name {
+            fn new() -> Self {
+                Self { buf: [0; #buf_size], curr_pos: 0 }
+            }
+
+            fn as_str(&self) -> &str {
+                unsafe { core::str::from_utf8_unchecked(&self.buf[..self.curr_pos as usize]) }
+            }
+
+            fn get_slice(&self) -> &[u8] {
+                &self.buf[..self.curr_pos as usize]
+            }
+
+            fn extend_from_slice(&mut self, bytes: &[u8]) {
+                let pos = self.curr_pos as usize;
+                let cap = #buf_size - pos;
+                let to_copy = core::cmp::min(cap, bytes.len());
+
+                self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
+                self.curr_pos += to_copy as u16;
+            }
+        }
+
+        impl core::fmt::Write for #buf_name {
+            fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                let bytes = s.as_bytes();
+                let pos = self.curr_pos as usize;
+                let cap = #buf_size - pos;
+
+                let to_copy = match bytes[..core::cmp::min(bytes.len(), cap)]
+                    .iter()
+                    .rposition(|&b| (b & 0xC0) != 0x80)
+                {
+                    Some(start_of_last_char) => {
+                        let last_char_byte = bytes[start_of_last_char];
+                        let width = match last_char_byte {
+                            0..=127 => 1,
+                            192..=223 => 2,
+                            224..=239 => 3,
+                            240..=247 => 4,
+                            _ => 1,
+                        };
+                        if start_of_last_char + width <= bytes.len() {
+                            start_of_last_char + width
+                        } else {
+                            start_of_last_char
+                        }
+                    }
+                    None => 0,
+                };
+
+                self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
+                self.curr_pos += to_copy as u16;
+
+                Ok(())
+            }
+        }
     };
 
     if let Some(error) = errors {
@@ -526,10 +595,11 @@ struct ResExtArgs {
     suffix: Option<String>,
     msg_prefix: Option<String>,
     msg_suffix: Option<String>,
-    msg_delimiter: Option<String>,
+    delimiter: Option<String>,
     source_prefix: Option<String>,
     include_variant: bool,
     alias: Option<proc_macro2::TokenStream>,
+    buf_size: Option<usize>,
 }
 
 impl Parse for ResExtArgs {
@@ -539,10 +609,11 @@ impl Parse for ResExtArgs {
             suffix: None,
             msg_prefix: None,
             msg_suffix: None,
-            msg_delimiter: None,
+            delimiter: None,
             source_prefix: None,
             include_variant: false,
             alias: None,
+            buf_size: None,
         };
 
         while !input.is_empty() {
@@ -570,9 +641,9 @@ impl Parse for ResExtArgs {
                     args.msg_suffix = Some(value.value())
                 }
 
-                "msg_delimiter" => {
+                "delimiter" => {
                     let value: LitStr = input.parse()?;
-                    args.msg_delimiter = Some(value.value())
+                    args.delimiter = Some(value.value())
                 }
 
                 "source_prefix" => {
@@ -588,6 +659,11 @@ impl Parse for ResExtArgs {
                 "alias" => {
                     let value: Ident = input.parse()?;
                     args.alias = Some(value.into_token_stream());
+                }
+
+                "buf_size" => {
+                    let value: syn::LitInt = input.parse()?;
+                    args.buf_size = Some(value.base10_parse()?);
                 }
 
                 _ => {

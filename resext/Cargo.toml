@@ -10,10 +10,5 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[features]
-default = ["proc-macro"]
-proc-macro = ["resext-macro"]
-declarative = []
-
 [dependencies]
-resext-macro = { version = "0.8.1", optional = true }
+resext-macro = "0.8.1"

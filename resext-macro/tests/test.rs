@@ -2,7 +2,7 @@ use resext_macro::resext;
 
 #[resext(
     alias = Resext
-    msg_delimiter = " ● "
+    delimiter = " ● "
 )]
 enum ErrTypes {
     Custom(String),
@@ -64,9 +64,8 @@ fn test_error_debug_format() {
 
 #[test]
 fn test_new_method() {
-    let res = ResextErr::new(Vec::new(), std::io::Error::other("TEST"));
-    let res2 =
-        ResextErr::new(b"Test constructor `new()` method".to_vec(), std::io::Error::other("TEST"));
+    let res = ResextErr::new("", std::io::Error::other("TEST"));
+    let res2 = ResextErr::new("Test constructor `new()` method", std::io::Error::other("TEST"));
 
     assert_eq!(res.to_string(), "Error: TEST");
     assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");
