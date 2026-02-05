@@ -1,3 +1,4 @@
+#![allow(invalid_from_utf8)]
 use resext_macro::resext;
 
 #[resext(
@@ -5,8 +6,8 @@ use resext_macro::resext;
     delimiter = " ● "
 )]
 enum ErrTypes {
-    Custom(String),
-    Io { error: std::io::Error },
+    Index(usize),
+    Utf8 { error: core::str::Utf8Error },
 }
 
 #[test]
@@ -14,9 +15,10 @@ enum ErrTypes {
 fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
-        let _ = std::fs::read(path).with_context(format_args!("Failed to read file: {}", path))?;
+        let _ = core::str::from_utf8(&[0, 158, 22])
+            .with_context(format_args!("Failed to read file: {}", path))?;
 
-        let _: Resext<()> = Err("TEST".to_string()).context("Custom error")?;
+        let _: Resext<()> = Err(286).context("Custom error")?;
 
         Ok(())
     }
@@ -25,7 +27,7 @@ fn test_error_propagation() {
 
 #[test]
 fn test_long_context() -> Resext<()> {
-    let long_result: Resext<()> = Ok::<(), std::io::Error>(())
+    let long_result: Resext<()> = Ok::<(), usize>(())
         .context("msg1")
         .context("msg2")
         .context("msg3")
@@ -39,7 +41,7 @@ fn test_long_context() -> Resext<()> {
 
 #[test]
 fn test_error_display_format() {
-    let result: Resext<_> = std::fs::read("non_existent")
+    let result: Resext<_> = core::str::from_utf8(&[0, 158, 22])
         .context("Failed to read config")
         .with_context(format_args!("Failed to load application"));
 
@@ -53,7 +55,7 @@ fn test_error_display_format() {
 
 #[test]
 fn test_error_debug_format() {
-    let result: Resext<_> = std::fs::read("non_existent").context("Context message");
+    let result: Resext<_> = core::str::from_utf8(&[0, 158, 22]).context("Context message");
 
     let err = result.unwrap_err();
     let debug_output = format!("{:?}", err);
@@ -64,9 +66,27 @@ fn test_error_debug_format() {
 
 #[test]
 fn test_new_method() {
-    let res = ResextErr::new("", std::io::Error::other("TEST"));
-    let res2 = ResextErr::new("Test constructor `new()` method", std::io::Error::other("TEST"));
+    let res = ResextErr::new("", 404);
+    let res2 = ResextErr::new("Test constructor `new()` method", 429);
 
-    assert_eq!(res.to_string(), "Error: TEST");
-    assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: TEST");
+    assert_eq!(res.to_string(), "Error: 404");
+    assert_eq!(res2.to_string(), "Test constructor `new()` method\nError: 429");
+}
+
+mod isolated_test {
+    use resext_macro::resext;
+    #[test]
+    fn test_msg_truncation() {
+        #[resext(buf_size = 5)]
+        enum TestErr {
+            Utf8(core::str::Utf8Error),
+        }
+
+        let res = core::str::from_utf8(&[0, 158, 22]).context("Good💖");
+
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            String::from("Good\nError: invalid utf-8 sequence of 1 bytes from index 1")
+        );
+    }
 }

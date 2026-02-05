@@ -552,8 +552,9 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let bytes = s.as_bytes();
                 let pos = self.curr_pos as usize;
                 let cap = #buf_size - pos;
+                let limit = core::cmp::min(bytes.len(), cap);
 
-                let to_copy = match bytes[..core::cmp::min(bytes.len(), cap)]
+                let to_copy = match bytes[..limit]
                     .iter()
                     .rposition(|&b| (b & 0xC0) != 0x80)
                 {
@@ -566,7 +567,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                             240..=247 => 4,
                             _ => 1,
                         };
-                        if start_of_last_char + width <= bytes.len() {
+                        if start_of_last_char + width <= limit {
                             start_of_last_char + width
                         } else {
                             start_of_last_char
