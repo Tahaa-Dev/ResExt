@@ -216,7 +216,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 
-    let exit_methods_def = {
+    let ext_methods_def = {
         #[cfg(feature = "std")]
         quote! {
             /// Exit the process with the given code if the result is an error.
@@ -241,13 +241,22 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// ```
             #[doc(hidden)]
             fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
+
+            #[doc(hidden)]
+            fn write_log<W: std::io::Write>(self, writer: W) -> Option<T>;
+
+            #[doc(hidden)]
+            fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
         }
 
         #[cfg(not(feature = "std"))]
-        quote! {}
+        quote! {
+            #[doc(hidden)]
+            fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
+        }
     };
 
-    let exit_methods_impl = {
+    let ext_methods_impl = {
         #[cfg(feature = "std")]
         quote! {
             fn or_exit(self, code: i32) -> T {
@@ -269,10 +278,56 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
+
+            fn write_log<W: std::io::Write>(self, mut writer: W) -> Option<T> {
+                match self {
+                    Ok(ok) => Some(ok),
+                    Err(err) => {
+                        let res = write!(&mut writer, "{}", err);
+
+                        match res {
+                            Ok(_) => {},
+                            Err(err) => {
+                                eprintln!("{}", err);
+                            }
+                        }
+
+                        None
+                    }
+                }
+            }
+
+            fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
+                match self {
+                    Ok(ok) => Some(ok),
+                    Err(err) => {
+                        let res = write!(&mut writer, "{}", err);
+
+                        match res {
+                            Ok(_) => {}
+                            Err(err) => {
+                                eprintln!("{}", err);
+                            }
+                        }
+
+                        None
+                    }
+                }
+            }
         }
 
         #[cfg(not(feature = "std"))]
-        quote! {}
+        quote! {
+            fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
+                match self {
+                    Ok(ok) => Some(ok),
+                    Err(err) => {
+                        let _ = write!(&mut writer, "{}", err);
+                        None
+                    }
+                }
+            }
+        }
     };
 
     let prefix = args.prefix.unwrap_or_default();
@@ -282,6 +337,18 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let delimiter = args.delimiter.unwrap_or_else(|| String::from(" - "));
     let source_prefix = args.source_prefix.unwrap_or_else(|| String::from("Error: "));
     let buf_size = args.buf_size.unwrap_or(64);
+
+    let export_macro = {
+        match vis {
+            &syn::Visibility::Inherited => quote! {},
+
+            _ => {
+                quote! {
+                    #[macro_export]
+                }
+            }
+        }
+    };
 
     let expanded = quote! {
         #[derive(Debug)]
@@ -426,7 +493,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             #[doc(hidden)]
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name>;
 
-            #exit_methods_def
+            #ext_methods_def
         }
 
         impl<'r, T> #trait_name<'r, T> for Result<T, #struct_name> {
@@ -481,7 +548,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            #exit_methods_impl
+            #ext_methods_impl
         }
 
         impl<'r, T, E: core::fmt::Display> #trait_name<'r, T> for Result<T, E>
@@ -524,7 +591,20 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            #exit_methods_impl
+            #ext_methods_impl
+        }
+
+        #[allow(unused_macros)]
+        #export_macro
+        macro_rules! #alias {
+            ($src:expr, $fmt:expr, $($arg:tt)*) => {
+                {
+                    use core::fmt::Write;
+                    let mut buf = #buf_name::new();
+                    let _ = write!(&mut buf, "{}", format_args!($fmt, $($arg)*));
+                    return Err(#struct_name { msg: buf, source: #enum_name::from($src) });
+                }
+            };
         }
 
         #vis type #alias<T> = Result<T, #struct_name>;
@@ -562,7 +642,16 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let bytes = s.as_bytes();
                 let pos = self.curr_pos as usize;
                 let cap = #buf_size - pos;
-                let limit = core::cmp::min(bytes.len(), cap);
+
+                let truncate;
+                let limit = if cap < bytes.len() {
+                    truncate = true;
+                    self.buf[#buf_size - 3..].copy_from_slice(b"...");
+                    cap - 3
+                } else {
+                    truncate = false;
+                    bytes.len()
+                };
 
                 let to_copy = match bytes[..limit]
                     .iter()
@@ -587,7 +676,11 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 };
 
                 self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
-                self.curr_pos += to_copy as u16;
+                if truncate {
+                    self.curr_pos = #buf_size as u16;
+                } else {
+                    self.curr_pos += to_copy as u16;
+                }
 
                 Ok(())
             }

@@ -1,31 +1,49 @@
-#![no_std]
 #![allow(invalid_from_utf8)]
-use resext_macro::resext;
+#![no_std]
 extern crate alloc;
 use alloc::string::ToString;
+
+use resext_macro::resext;
 
 #[resext(
     alias = Resext
     delimiter = " ● "
+    buf_size = 100
 )]
 enum ErrTypes {
-    Index(usize),
+    HttpResponse(usize),
     Utf8 { error: core::str::Utf8Error },
 }
 
 #[test]
-#[should_panic]
 fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
-        let _ = core::str::from_utf8(&[0, 158, 22])
-            .with_context(format_args!("Failed to read file: {}", path))?;
+
+        let _ = core::str::from_utf8(&[0, 158, 22]).with_context(format_args!(
+            "Failed to format file extension from bytes for path: {}",
+            path
+        ))?;
 
         let _: Resext<()> = Err(286).context("Custom error")?;
 
         Ok(())
     }
-    temp().unwrap();
+
+    fn temp2() -> Resext<()> {
+        let path = "non_existent";
+
+        Resext!(404, "Page not found: {}", path);
+    }
+
+    let err1 = temp().unwrap_err();
+    let err2 = temp2().unwrap_err();
+
+    assert_eq!(
+        format_args!("{}", err1).to_string(),
+        "Failed to format file extension from bytes for path: non_existent\nError: invalid utf-8 sequence of 1 bytes from index 1"
+    );
+    assert_eq!(format_args!("{}", err2).to_string(), "Page not found: non_existent\nError: 404");
 }
 
 #[test]
@@ -90,7 +108,7 @@ mod isolated_test {
 
         assert_eq!(
             format_args!("{}", res.unwrap_err()).to_string(),
-            "Good\nError: invalid utf-8 sequence of 1 bytes from index 1"
+            "Go...\nError: invalid utf-8 sequence of 1 bytes from index 1"
         );
     }
 }
