@@ -1,6 +1,6 @@
 # resext-macro
 
-**Procedural macro implementation for ResExt**
+**Procedural macro for ResExt**
 
 This crate provides the `#[resext]` attribute macro for ergonomic error handling. It is not meant to be used directly - use the `resext` crate instead.
 
@@ -21,8 +21,8 @@ enum MyError {
 This expands to approximately 200 lines of boilerplate including:
 
 - `Display` and `Error` trait implementations
-- `ResErr` wrapper struct with context storage
-- `ResExt` trait with context methods
+-  Wrapper struct with inline zero-alloc context storage
+-  Trait with context methods
 - `From` implementations for automatic conversion
 - Type alias for `Result<T, ResErr>`
 
@@ -104,6 +104,14 @@ enum AppError {
 pub type AppResult<T> = Result<T, ResErr>;
 ```
 
+### Context storage inline buffer size
+
+```rust
+#[resext(buf_size = 72)]
+```
+
+- `buf_size` sets the size for the inline context storage byte buffer, so with the attribute above, you get 72 bytes of context messages (including delimiters, so it's more accurately `buf_size - (number_of_messages - 1) * len_of_delimiter`)
+
 ---
 
 ## Supported Variant Types
@@ -150,69 +158,22 @@ Displays as the variant name: `NotFound`
 
 ---
 
-## Generated Code
-
-For this input:
-
-```rust
-#[resext]
-pub enum MyError {
-    Io(std::io::Error),
-}
-```
-
-The macro generates (simplified):
-
-```rust
-#[derive(Debug)]
-pub enum MyError {
-    Io(std::io::Error),
-}
-
-impl Display for MyError { /* ... */ }
-impl Error for MyError {}
-
-pub struct ResErr {
-    msg: Vec<u8>,
-    pub source: MyError,
-}
-
-impl Display for ResErr { /* ... */ }
-impl Debug for ResErr { /* ... */ }
-
-impl From<std::io::Error> for MyError { /* ... */ }
-impl From<std::io::Error> for ResErr { /* ... */ }
-
-pub trait ResExt<T> {
-    fn context(self, msg: &str) -> Result<T, ResErr>;
-    fn with_context<F: FnOnce() -> String>(self, f: F) -> Result<T, ResErr>;
-    // ... other methods
-}
-
-impl<T> ResExt<T> for Result<T, ResErr> { /* ... */ }
-impl<T, E> ResExt<T> for Result<T, E> where MyError: From<E> { /* ... */ }
-
-pub type Res<T> = Result<T, ResErr>;
-```
-
----
-
 ## Performance Characteristics
 
-- Context storage uses `Vec<u8>` for string data
-- Pre-calculates required capacity to minimize allocations
-- Reuses buffer for multiple context calls
-- Zero overhead when errors don't occur
+- Context storage uses `[u8; BUF_SIZE]` for string data
+- Zero-alloc even on errors
 
 ---
 
 ## Implementation Details
 
-The macro uses:
+1. The macro uses:
 
 - `syn` for parsing Rust syntax
 - `quote` for code generation
 - `proc-macro2` for token manipulation
+
+2. The macro is always UTF-8 safe except for the `unsafe` method `.byte_context(bytes)`
 
 ---
 
@@ -237,14 +198,6 @@ X |     Multi(std::io::Error, String),
 
 ---
 
-## Dependencies
-
-- `syn` - Parsing
-- `quote` - Code generation
-- `proc-macro2` - Token manipulation
-
----
-
 ## License
 
 MIT - See [LICENSE](../LICENSE) for details.
@@ -255,4 +208,3 @@ MIT - See [LICENSE](../LICENSE) for details.
 
 - [resext](../resext/README.md) - Main crate documentation
 - [ResExt repository](https://github.com/Tahaa-Dev/ResExt)
-
