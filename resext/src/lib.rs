@@ -1,6 +1,6 @@
 //! **Context-rich error handling for Rust with zero-cost abstractions and zero allocations**
-//! 
-//! This is the primary interface for ResExt. It re-exports the proc-macro as well as other helpers 
+//!
+//! This is the primary interface for ResExt. It re-exports the proc-macro as well as other helpers
 //! provided by ResExt.
 //!
 //! # Quick Start

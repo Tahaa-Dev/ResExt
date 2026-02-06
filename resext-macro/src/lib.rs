@@ -296,12 +296,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             ///
             /// This method:
             /// ```rust,ignore
-            /// #struct_name::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
+            /// ResErr::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
             /// ```
             ///
             /// - is the same as:
             /// ```rust,ignore
-            /// #struct_name { b"Failed to read file".to_vec(),
+            /// ResErr { b"Failed to read file".to_vec(),
             /// ErrorEnum::Io(std::io::Error::other("")) }
             /// ```
             #vis fn new<E>(msg: &str, source: E) -> Self where #enum_name: From<E> {

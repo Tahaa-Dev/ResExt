@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.9.0- 2026-02-06
+
+### BREAKING CHANGES:
+
+- Switched to Zero-Allocation Inline Storage for error messages.
+- Removed the deprecated declarative macro.
+
+### Added
+
+- Saturating Inline Storage: Replaced `Vec<u8>` with a stack-allocated buffer (ResBuf).
+  - Controlled via the `buf_size` attribute (default: 64 bytes).
+  - Guaranteed 0-allocation path for error context.
+  - Built-in UTF-8 boundary safety to prevent invalid truncation except for the `unsafe` method `.byte_context()`
+- Dynamic Context Optimization: `.with_context()` now accepts `core::fmt::Arguments<'_>` via `format_args!()`, avoiding heap-allocated `String`s during context creation.
+- Dynamic Naming Logic: Item names (Err, Buf, and ResExt trait) are now generated based on the provided alias for better project organization and LSP support.
+- Enhanced `.or_exit()`: The method now prints the error to Stderr before exiting, providing a clean "unwrap-like" method.
+
+## Changed
+
+- Internal Cleanup: Fully unified the codebase around the procedural macro engine.
+Removed
+- Declarative Macro: The old `macro_rules!` declarative implementation has been fully removed in favor of the more robust` #[resext]` attribute.
+
+---
+
 ## v0.8.0 - 2026-01-28
 
 ### Added

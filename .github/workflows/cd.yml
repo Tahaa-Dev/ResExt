@@ -40,8 +40,7 @@ jobs:
     - name: Update resext dependency to new version
       run: |
         cd resext
-        # Update resext-macro dependency to new version
-        sed -i 's/resext-macro = { version = "[^"]*"/resext-macro = { version = "${{ steps.version.outputs.VERSION }}"/' Cargo.toml
+        sed -i 's/resext-macro = "[^"]*"/resext-macro = "${{ steps.version.outputs.VERSION }}"/' Cargo.toml
     
     - name: Publish resext
       env:
