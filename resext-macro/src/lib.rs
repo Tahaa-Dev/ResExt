@@ -216,6 +216,65 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 
+    let exit_methods_def = {
+        #[cfg(feature = "std")]
+        quote! {
+            /// Exit the process with the given code if the result is an error.
+            ///
+            /// Useful for CLI applications that want to exit on critical errors.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// let config = load_config().or_exit(1);
+            /// ```
+            #[doc(hidden)]
+            fn or_exit(self, code: i32) -> T;
+
+            /// Like `or_exit` but prints a custom message before exiting.
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// let data = load_critical_data()
+            ///     .better_expect(|| "FATAL: Cannot start without data", 1);
+            /// ```
+            #[doc(hidden)]
+            fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
+        }
+
+        #[cfg(not(feature = "std"))]
+        quote! {}
+    };
+
+    let exit_methods_impl = {
+        #[cfg(feature = "std")]
+        quote! {
+            fn or_exit(self, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        std::process::exit(code);
+                    }
+                }
+            }
+
+            fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
+                match self {
+                    Ok(ok) => ok,
+                    Err(err) => {
+                        eprintln!("{}\nError: {}", f(), err);
+                        std::process::exit(code);
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(feature = "std"))]
+        quote! {}
+    };
+
     let prefix = args.prefix.unwrap_or_default();
     let suffix = args.suffix.unwrap_or_default();
     let msg_prefix = args.msg_prefix.unwrap_or_default();
@@ -228,15 +287,13 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[derive(Debug)]
         #input
 
-        impl std::fmt::Display for #enum_name {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        impl core::fmt::Display for #enum_name {
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 match self {
                     #(#display_match_arms)*
                 }
             }
         }
-
-        impl std::error::Error for #enum_name {}
 
         /// Wrapper type that holds your error with optional context messages.
         ///
@@ -247,6 +304,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             msg: #buf_name,
             #vis source: #enum_name
         }
+        impl core::error::Error for #struct_name {}
+
 
         impl core::fmt::Write for #struct_name {
             fn write_str(&mut self, s: &str) -> core::fmt::Result {
@@ -254,8 +313,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl std::fmt::Display for #struct_name {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        impl core::fmt::Display for #struct_name {
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 if self.msg.curr_pos == 0 {
                     write!(f, "{}{}{}", #source_prefix, &self.source, #suffix)
                 } else {
@@ -263,7 +322,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         f,
                         "{}{}\n{}{}{}",
                         #prefix,
-                        unsafe { std::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        unsafe { core::str::from_utf8_unchecked(&self.msg.get_slice()) },
                         #source_prefix,
                         self.source,
                         #suffix,
@@ -272,8 +331,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl std::fmt::Debug for #struct_name {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        impl core::fmt::Debug for #struct_name {
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 if self.msg.curr_pos == 0 {
                     write!(f, "{}{:?}{}", #source_prefix, &self.source, #suffix)
                 } else {
@@ -281,7 +340,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         f,
                         "{}{}\n{}{:?}{}",
                         #prefix,
-                        unsafe { std::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        unsafe { core::str::from_utf8_unchecked(&self.msg.get_slice()) },
                         #source_prefix,
                         self.source,
                         #suffix,
@@ -367,28 +426,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             #[doc(hidden)]
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name>;
 
-            /// Exit the process with the given code if the result is an error.
-            ///
-            /// Useful for CLI applications that want to exit on critical errors.
-            ///
-            /// # Examples
-            ///
-            /// ```rust,ignore
-            /// let config = load_config().or_exit(1);
-            /// ```
-            #[doc(hidden)]
-            fn or_exit(self, code: i32) -> T;
-
-            /// Like `or_exit` but prints a custom message before exiting.
-            ///
-            /// # Examples
-            ///
-            /// ```rust,ignore
-            /// let data = load_critical_data()
-            ///     .better_expect(|| "FATAL: Cannot start without data", 1);
-            /// ```
-            #[doc(hidden)]
-            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
+            #exit_methods_def
         }
 
         impl<'r, T> #trait_name<'r, T> for Result<T, #struct_name> {
@@ -443,28 +481,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            fn or_exit(self, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        std::process::exit(code);
-                    }
-                }
-            }
-
-            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}\nError: {}", f(), err);
-                        std::process::exit(code);
-                    }
-                }
-            }
+            #exit_methods_impl
         }
 
-        impl<'r, T, E: std::fmt::Display> #trait_name<'r, T> for Result<T, E>
+        impl<'r, T, E: core::fmt::Display> #trait_name<'r, T> for Result<T, E>
         where
             #enum_name: From<E>,
         {
@@ -504,25 +524,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            fn or_exit(self, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        std::process::exit(code);
-                    }
-                }
-            }
-
-            fn better_expect<M: std::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}\nError: {}", f(), err);
-                        std::process::exit(code);
-                    }
-                }
-            }
+            #exit_methods_impl
         }
 
         #vis type #alias<T> = Result<T, #struct_name>;

@@ -1,3 +1,4 @@
+#![no_std]
 //! **Context-rich error handling for Rust with zero-cost abstractions and zero allocations**
 //!
 //! This is the primary interface for ResExt. It re-exports the proc-macro as well as other helpers
@@ -207,6 +208,7 @@ pub use resext_macro::resext;
 /// panic_if!(x > 10, "x is too big", 1);
 /// panic_if!(x > 10, format!("x={} is too big", x), 1);
 /// ```
+#[cfg(feature = "std")]
 #[macro_export]
 macro_rules! panic_if {
     ($condition:expr, $msg:expr, $code:expr) => {

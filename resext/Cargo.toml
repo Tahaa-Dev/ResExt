@@ -10,5 +10,8 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+std = ["resext-macro/std"]
+
 [dependencies]
-resext-macro = "0.8.1"
+resext-macro = { path = "../resext-macro" }
