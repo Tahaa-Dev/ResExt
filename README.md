@@ -21,7 +21,7 @@ cargo add resext
 
 ```toml
 [dependencies]
-resext = "0.8"
+resext = "0.9"
 ```
 
 ---

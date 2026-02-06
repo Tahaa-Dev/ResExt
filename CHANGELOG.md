@@ -10,7 +10,7 @@
   - `suffix` - String appended to entire error message
   - `msg_prefix` - String prepended to each context message
   - `msg_suffix` - String appended to each context message
-  - `msg_delimiter` - Separator between context messages (default: " - ")
+  - `delimiter` - Separator between context messages (default: " - ")
   - `source_prefix` - String prepended to underlying error (default: "Error: ")
 - `include_variant` option to show variant names in error display
 - `alias` option for custom type alias names

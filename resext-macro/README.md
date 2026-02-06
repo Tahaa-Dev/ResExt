@@ -48,13 +48,13 @@ This expands to approximately 200 lines of boilerplate including:
 #[resext(
     msg_prefix = "  ",
     msg_suffix = "",
-    msg_delimiter = "\n"
+    delimiter = "\n"
 )]
 ```
 
 - `msg_prefix` - Prepended to each context message
 - `msg_suffix` - Appended to each context message
-- `msg_delimiter` - Separator between contexts (default: " - ")
+- `delimiter` - Separator between contexts (default: " - ")
 
 ### Source Formatting
 

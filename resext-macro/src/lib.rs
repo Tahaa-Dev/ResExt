@@ -444,7 +444,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn or_exit(self, code: i32) -> T {
                 match self {
                     Ok(ok) => ok,
-                    Err(_) => std::process::exit(code),
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        std::process::exit(code);
+                    }
                 }
             }
 
@@ -502,7 +505,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn or_exit(self, code: i32) -> T {
                 match self {
                     Ok(ok) => ok,
-                    Err(_) => std::process::exit(code),
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        std::process::exit(code);
+                    }
                 }
             }
 
