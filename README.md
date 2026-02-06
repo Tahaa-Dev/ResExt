@@ -5,7 +5,7 @@
 [![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ResExt provides ergonomic error handling with context chains, similar to anyhow but with explicit error types. Choose between a proc macro for clean syntax and custom formatting or a declarative macro for zero dependencies.
+ResExt provides ergonomic error-handling similar to anyhow, but it uses explicit types with `From<E>` trait `impl`s, zero-alloc for every use case and inline byte buffers for context storage.
 
 ---
 
@@ -53,8 +53,8 @@ fn read_config() -> Res<String> {
 - **Type-safe errors** - Explicit error enums, no type erasure
 - **Context chains** - Add context to errors as they propagate
 - **Custom formatting** - Configure error display with attributes
-- **Zero dependencies** - Provides declarative macro with no dependencies
-- **Proc macro** - Clean syntax with `#[resext]` attribute (default)
+- **Easy error-handling** - Ergonomic, anyhow-like error-handling for seamless `?` usage for error-propagation
+- **Zero-alloc** - ResExt is 100% allocation free for restricted environments with inline arrays for context buffers and no boxing (type erasure)
 
 ---
 
@@ -63,7 +63,7 @@ fn read_config() -> Res<String> {
 ```rust
 #[resext(
     prefix = "ERROR: ",
-    msg_delimiter = " -> ",
+    delimiter = " -> ",
     include_variant = true,
     alias = AppResult
 )]
@@ -75,17 +75,12 @@ enum MyError {
 
 ---
 
-## Feature Flags
-
-- `proc-macro` (default) - Use proc macro for clean syntax and custom formatting
-- `declarative` - Use declarative macro for zero dependencies
-
----
-
 ## Documentation
 
-- [Main crate documentation](resext/README.md)
-- [Proc macro documentation](resext-macro/README.md)
+- [Main crate README.md](resext/README.md)
+- [Proc macro README.md](resext-macro/README.md)
+- [Main crate Documentation](https://docs.rs/resext)
+- [Proc macro Documentation](https://docs.rs/resext-macro)
 
 ---
 
