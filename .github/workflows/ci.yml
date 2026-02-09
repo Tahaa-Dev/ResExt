@@ -25,9 +25,12 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     
-    - name: Run clippy
+    - name: Run lint (`cargo clippy`)
       run: cargo clippy --all-targets -- -D warnings
     
     - name: Check formatting
       if: github.event_name == 'pull_request'
       run: cargo fmt -- --check
+
+    - name: Build docs
+      run: cargo doc

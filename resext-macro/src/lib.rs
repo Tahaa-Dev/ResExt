@@ -228,7 +228,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// ```rust,ignore
             /// let config = load_config().or_exit(1);
             /// ```
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn or_exit(self, code: i32) -> T;
 
             /// Like `or_exit` but prints a custom message before exiting.
@@ -239,19 +239,19 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// let data = load_critical_data()
             ///     .better_expect(|| "FATAL: Cannot start without data", 1);
             /// ```
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
 
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn write_log<W: std::io::Write>(self, writer: W) -> Option<T>;
 
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
         }
 
         #[cfg(not(feature = "std"))]
         quote! {
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
         }
     };
@@ -366,7 +366,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///
         /// This type is automatically created when you use `.context()` or
         /// `.with_context()` on a Result.
-        #[doc(hidden)]
+        #[cfg(not(doc))]
         #vis struct #struct_name {
             msg: #buf_name,
             #vis source: #enum_name
@@ -457,7 +457,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// std::fs::read("file.txt")
         ///     .context("Failed to read file")?;
         /// ```
-        #[doc(hidden)]
+        #[cfg(not(doc))]
         #vis trait #trait_name<'r, T> {
             /// Add a static context message to an error.
             ///
@@ -469,7 +469,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// std::fs::read("config.toml")
             ///     .context("Failed to read config")?;
             /// ```
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn context(self, msg: &str) -> Result<T, #struct_name>;
 
             /// Add a dynamic context message (computed only on error).
@@ -482,7 +482,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// std::fs::read(path)
             ///     .with_context(|| format!("Failed to read: {}", path))?;
             /// ```
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name>;
 
             /// Add raw bytes as context (must be valid UTF-8).
@@ -490,7 +490,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// # Safety
             ///
             /// The bytes must be valid UTF-8
-            #[doc(hidden)]
+            #[cfg(not(doc))]
             unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name>;
 
             #ext_methods_def
