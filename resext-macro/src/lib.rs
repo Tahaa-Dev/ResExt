@@ -31,7 +31,8 @@
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Data, DeriveInput, Error, Ident, LitStr, parse::Parse, parse_macro_input, spanned::Spanned,
+    Data, DeriveInput, Error, Ident, LitBool, LitStr, parse::Parse, parse_macro_input,
+    spanned::Spanned,
 };
 
 /// Generate error handling boilerplate for an enum.
@@ -107,6 +108,9 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let struct_name = quote::format_ident!("{}Err", alias.to_string());
     let buf_name = quote::format_ident!("{}Buf", alias.to_string());
     let trait_name = quote::format_ident!("{}Ext", alias.to_string());
+
+    let std = args.std;
+    let alloc = args.alloc;
 
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
@@ -217,113 +221,113 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let ext_methods_def = {
-        #[cfg(feature = "std")]
-        quote! {
-            /// Exit the process with the given code if the result is an error.
-            ///
-            /// Useful for CLI applications that want to exit on critical errors.
-            ///
-            /// # Examples
-            ///
-            /// ```rust,ignore
-            /// let config = load_config().or_exit(1);
-            /// ```
-            #[cfg(not(doc))]
-            fn or_exit(self, code: i32) -> T;
+        if std {
+            quote! {
+                /// Exit the process with the given code if the result is an error.
+                ///
+                /// Useful for CLI applications that want to exit on critical errors.
+                ///
+                /// # Examples
+                ///
+                /// ```rust,ignore
+                /// let config = load_config().or_exit(1);
+                /// ```
+                #[cfg(not(doc))]
+                fn or_exit(self, code: i32) -> T;
 
-            /// Like `or_exit` but prints a custom message before exiting.
-            ///
-            /// # Examples
-            ///
-            /// ```rust,ignore
-            /// let data = load_critical_data()
-            ///     .better_expect(|| "FATAL: Cannot start without data", 1);
-            /// ```
-            #[cfg(not(doc))]
-            fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
+                /// Like `or_exit` but prints a custom message before exiting.
+                ///
+                /// # Examples
+                ///
+                /// ```rust,ignore
+                /// let data = load_critical_data()
+                ///     .better_expect(|| "FATAL: Cannot start without data", 1);
+                /// ```
+                #[cfg(not(doc))]
+                fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T;
 
-            #[cfg(not(doc))]
-            fn write_log<W: std::io::Write>(self, writer: W) -> Option<T>;
+                #[cfg(not(doc))]
+                fn write_log<W: std::io::Write>(self, writer: W) -> Option<T>;
 
-            #[cfg(not(doc))]
-            fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
-        }
-
-        #[cfg(not(feature = "std"))]
-        quote! {
-            #[cfg(not(doc))]
-            fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
+                #[cfg(not(doc))]
+                fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
+            }
+        } else {
+            quote! {
+                #[cfg(not(doc))]
+                fn fmt_log<F: core::fmt::Write>(self, writer: F) -> Option<T>;
+            }
         }
     };
 
     let ext_methods_impl = {
-        #[cfg(feature = "std")]
-        quote! {
-            fn or_exit(self, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}", err);
-                        std::process::exit(code);
-                    }
-                }
-            }
-
-            fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
-                match self {
-                    Ok(ok) => ok,
-                    Err(err) => {
-                        eprintln!("{}\nError: {}", f(), err);
-                        std::process::exit(code);
-                    }
-                }
-            }
-
-            fn write_log<W: std::io::Write>(self, mut writer: W) -> Option<T> {
-                match self {
-                    Ok(ok) => Some(ok),
-                    Err(err) => {
-                        let res = write!(&mut writer, "{}", err);
-
-                        match res {
-                            Ok(_) => {},
-                            Err(err) => {
-                                eprintln!("{}", err);
-                            }
+        if std {
+            quote! {
+                fn or_exit(self, code: i32) -> T {
+                    match self {
+                        Ok(ok) => ok,
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            std::process::exit(code);
                         }
-
-                        None
                     }
                 }
-            }
 
-            fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
-                match self {
-                    Ok(ok) => Some(ok),
-                    Err(err) => {
-                        let res = write!(&mut writer, "{}", err);
-
-                        match res {
-                            Ok(_) => {}
-                            Err(err) => {
-                                eprintln!("{}", err);
-                            }
+                fn better_expect<M: core::fmt::Display, F: FnOnce() -> M>(self, f: F, code: i32) -> T {
+                    match self {
+                        Ok(ok) => ok,
+                        Err(err) => {
+                            eprintln!("{}\nError: {}", f(), err);
+                            std::process::exit(code);
                         }
+                    }
+                }
 
-                        None
+                fn write_log<W: std::io::Write>(self, mut writer: W) -> Option<T> {
+                    match self {
+                        Ok(ok) => Some(ok),
+                        Err(err) => {
+                            let res = write!(&mut writer, "{}", err);
+
+                            match res {
+                                Ok(_) => {},
+                                Err(err) => {
+                                    eprintln!("{}", err);
+                                }
+                            }
+
+                            None
+                        }
+                    }
+                }
+
+                fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
+                    match self {
+                        Ok(ok) => Some(ok),
+                        Err(err) => {
+                            let res = write!(&mut writer, "{}", err);
+
+                            match res {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    eprintln!("{}", err);
+                                }
+                            }
+
+                            None
+                        }
                     }
                 }
             }
-        }
-
-        #[cfg(not(feature = "std"))]
-        quote! {
-            fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
-                match self {
-                    Ok(ok) => Some(ok),
-                    Err(err) => {
-                        let _ = write!(&mut writer, "{}", err);
-                        None
+        } else {
+            quote! {
+                fn fmt_log<F: core::fmt::Write>(self, mut writer: F) -> Option<T> {
+                    match self {
+                        Ok(ok) => Some(ok),
+                        Err(err) => {
+                            let _ = write!(&mut writer, "{}", err);
+                            None
+                        }
                     }
                 }
             }
@@ -345,6 +349,142 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             _ => {
                 quote! {
                     #[macro_export]
+                }
+            }
+        }
+    };
+
+    let gen_buf = {
+        if !alloc {
+            quote! {
+                struct #buf_name {
+                    curr_pos: u16,
+                    buf: [u8; #buf_size],
+                }
+
+                impl #buf_name {
+                    fn new() -> Self {
+                        Self { buf: [0; #buf_size], curr_pos: 0 }
+                    }
+
+                    fn get_slice(&self) -> &[u8] {
+                        &self.buf[..self.curr_pos as usize]
+                    }
+
+                    fn is_empty(&self) -> bool {
+                        self.curr_pos == 0
+                    }
+                }
+
+                impl core::fmt::Write for #buf_name {
+                    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                        let bytes = s.as_bytes();
+                        let pos = self.curr_pos as usize;
+                        let cap = #buf_size - pos;
+
+                        let truncate;
+                        let limit = if cap < bytes.len() {
+                            truncate = true;
+                            self.buf[#buf_size - 3..].copy_from_slice(b"...");
+                            cap - 3
+                        } else {
+                            truncate = false;
+                            bytes.len()
+                        };
+
+                        let to_copy = match bytes[..limit]
+                            .iter()
+                            .rposition(|&b| (b & 0xC0) != 0x80)
+                        {
+                            Some(start_of_last_char) => {
+                                let last_char_byte = bytes[start_of_last_char];
+                                let width = match last_char_byte {
+                                    0..=127 => 1,
+                                    192..=223 => 2,
+                                    224..=239 => 3,
+                                    240..=247 => 4,
+                                    _ => 1,
+                                };
+                                if start_of_last_char + width <= limit {
+                                    start_of_last_char + width
+                                } else {
+                                    start_of_last_char
+                                }
+                            }
+                            None => 0,
+                        };
+
+                        self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
+                        if truncate {
+                            self.curr_pos = #buf_size as u16;
+                        } else {
+                            self.curr_pos += to_copy as u16;
+                        }
+
+                        Ok(())
+                    }
+                }
+            }
+        } else {
+            quote! {
+                enum #buf_name {
+                    Stack { buf: [u8; #buf_size], curr_pos: u16 },
+                    Heap(alloc::vec::Vec<u8>),
+                }
+
+                impl #buf_name {
+                    fn new() -> Self {
+                        Self::Stack { buf: [0; #buf_size], curr_pos: 0 }
+                    }
+
+                    fn get_slice(&self) -> &[u8] {
+                        match self {
+                            Self::Stack { buf, curr_pos } => &buf[..*curr_pos as usize],
+                            Self::Heap(buf) => buf,
+                        }
+                    }
+
+                    fn reserve_exact(&mut self, bytes: usize) {
+                        match self {
+                            Self::Stack { buf: _, curr_pos: _ } => {}
+                            Self::Heap(buf) => buf.reserve_exact(bytes),
+                        }
+                    }
+
+                    fn is_empty(&self) -> bool {
+                        match self {
+                            Self::Heap(buf) => buf.is_empty(),
+                            Self::Stack { buf: _, curr_pos } => *curr_pos == 0,
+                        }
+                    }
+                }
+
+                impl core::fmt::Write for #buf_name {
+                    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                        match self {
+                            Self::Heap(buf) => buf.extend_from_slice(s.as_bytes()),
+                            Self::Stack { buf, curr_pos } => {
+                                let bytes = s.as_bytes();
+                                let pos = *curr_pos as usize;
+                                let cap = #buf_size - pos;
+
+                                if bytes.len() > cap {
+                                    let mut vec = alloc::vec::Vec::new();
+                                    vec.reserve_exact(pos + bytes.len());
+
+                                    vec.extend_from_slice(&buf[..pos]);
+                                    vec.extend_from_slice(bytes);
+
+                                    *self = #buf_name::Heap(vec);
+                                } else {
+                                    buf[pos..pos + bytes.len()].copy_from_slice(bytes);
+                                    *curr_pos += bytes.len() as u16;
+                                }
+                            }
+                        }
+
+                        Ok(())
+                    }
                 }
             }
         }
@@ -382,7 +522,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl core::fmt::Display for #struct_name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                if self.msg.curr_pos == 0 {
+                if self.msg.is_empty() {
                     write!(f, "{}{}{}", #source_prefix, &self.source, #suffix)
                 } else {
                     write!(
@@ -400,7 +540,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl core::fmt::Debug for #struct_name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                if self.msg.curr_pos == 0 {
+                if self.msg.is_empty() {
                     write!(f, "{}{:?}{}", #source_prefix, &self.source, #suffix)
                 } else {
                     write!(
@@ -485,14 +625,6 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             #[cfg(not(doc))]
             fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name>;
 
-            /// Add raw bytes as context (must be valid UTF-8).
-            ///
-            /// # Safety
-            ///
-            /// The bytes must be valid UTF-8
-            #[cfg(not(doc))]
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name>;
-
             #ext_methods_def
         }
 
@@ -502,7 +634,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
                         use core::fmt::Write;
-                        if err.msg.curr_pos == 0 {
+                        if err.msg.is_empty() {
                             let _ = write!(&mut err, "{}", msg);
                         } else {
                             let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, msg, #msg_suffix);
@@ -517,31 +649,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
                         use core::fmt::Write;
-                        if err.msg.curr_pos == 0 {
+                        if err.msg.is_empty() {
                             let _ = write!(&mut err, "{}", args);
                         } else {
                             let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, args, #msg_suffix);
-                        }
-                        Err(err)
-                    }
-                }
-            }
-
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name> {
-                match self {
-                    Ok(ok) => Ok(ok),
-                    Err(mut err) => {
-                        if err.msg.curr_pos == 0 {
-                            err.msg.extend_from_slice(bytes);
-                        } else {
-                            let bytes2 = #delimiter.as_bytes();
-                            let bytes3 = #msg_prefix.as_bytes();
-                            let bytes4 = #msg_suffix.as_bytes();
-                            err.msg.extend_from_slice(b"\n");
-                            err.msg.extend_from_slice(bytes2);
-                            err.msg.extend_from_slice(bytes3);
-                            err.msg.extend_from_slice(bytes);
-                            err.msg.extend_from_slice(bytes4);
                         }
                         Err(err)
                     }
@@ -579,18 +690,6 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            unsafe fn byte_context(self, bytes: &[u8]) -> Result<T, #struct_name> {
-                match self {
-                    Ok(ok) => Ok(ok),
-                    Err(err) => {
-                        use core::fmt::Write;
-                        let mut buf = #buf_name::new();
-                        buf.extend_from_slice(bytes);
-                        Err(#struct_name { msg: buf, source: err.into() })
-                    }
-                }
-            }
-
             #ext_methods_impl
         }
 
@@ -609,82 +708,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #vis type #alias<T> = Result<T, #struct_name>;
 
-        struct #buf_name {
-            curr_pos: u16,
-            buf: [u8; #buf_size],
-        }
-
-        impl #buf_name {
-            fn new() -> Self {
-                Self { buf: [0; #buf_size], curr_pos: 0 }
-            }
-
-            fn as_str(&self) -> &str {
-                unsafe { core::str::from_utf8_unchecked(&self.buf[..self.curr_pos as usize]) }
-            }
-
-            fn get_slice(&self) -> &[u8] {
-                &self.buf[..self.curr_pos as usize]
-            }
-
-            fn extend_from_slice(&mut self, bytes: &[u8]) {
-                let pos = self.curr_pos as usize;
-                let cap = #buf_size - pos;
-                let to_copy = core::cmp::min(cap, bytes.len());
-
-                self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
-                self.curr_pos += to_copy as u16;
-            }
-        }
-
-        impl core::fmt::Write for #buf_name {
-            fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                let bytes = s.as_bytes();
-                let pos = self.curr_pos as usize;
-                let cap = #buf_size - pos;
-
-                let truncate;
-                let limit = if cap < bytes.len() {
-                    truncate = true;
-                    self.buf[#buf_size - 3..].copy_from_slice(b"...");
-                    cap - 3
-                } else {
-                    truncate = false;
-                    bytes.len()
-                };
-
-                let to_copy = match bytes[..limit]
-                    .iter()
-                    .rposition(|&b| (b & 0xC0) != 0x80)
-                {
-                    Some(start_of_last_char) => {
-                        let last_char_byte = bytes[start_of_last_char];
-                        let width = match last_char_byte {
-                            0..=127 => 1,
-                            192..=223 => 2,
-                            224..=239 => 3,
-                            240..=247 => 4,
-                            _ => 1,
-                        };
-                        if start_of_last_char + width <= limit {
-                            start_of_last_char + width
-                        } else {
-                            start_of_last_char
-                        }
-                    }
-                    None => 0,
-                };
-
-                self.buf[pos..pos + to_copy].copy_from_slice(&bytes[..to_copy]);
-                if truncate {
-                    self.curr_pos = #buf_size as u16;
-                } else {
-                    self.curr_pos += to_copy as u16;
-                }
-
-                Ok(())
-            }
-        }
+        #gen_buf
     };
 
     if let Some(error) = errors {
@@ -704,6 +728,8 @@ struct ResExtArgs {
     include_variant: bool,
     alias: Option<proc_macro2::TokenStream>,
     buf_size: Option<usize>,
+    std: bool,
+    alloc: bool,
 }
 
 impl Parse for ResExtArgs {
@@ -718,6 +744,8 @@ impl Parse for ResExtArgs {
             include_variant: false,
             alias: None,
             buf_size: None,
+            std: false,
+            alloc: false,
         };
 
         while !input.is_empty() {
@@ -755,11 +783,6 @@ impl Parse for ResExtArgs {
                     args.source_prefix = Some(value.value())
                 }
 
-                "include_variant" => {
-                    let value: syn::LitBool = input.parse()?;
-                    args.include_variant = value.value();
-                }
-
                 "alias" => {
                     let value: Ident = input.parse()?;
                     args.alias = Some(value.into_token_stream());
@@ -768,6 +791,21 @@ impl Parse for ResExtArgs {
                 "buf_size" => {
                     let value: syn::LitInt = input.parse()?;
                     args.buf_size = Some(value.base10_parse()?);
+                }
+
+                "std" => {
+                    let value: LitBool = input.parse()?;
+                    args.std = value.value();
+                }
+
+                "alloc" => {
+                    let value: LitBool = input.parse()?;
+                    args.alloc = value.value();
+                }
+
+                "include_variant" => {
+                    let value: LitBool = input.parse()?;
+                    args.include_variant = value.value();
                 }
 
                 _ => {

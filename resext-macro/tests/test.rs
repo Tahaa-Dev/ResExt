@@ -8,7 +8,8 @@ use resext_macro::resext;
 #[resext(
     alias = Resext
     delimiter = " ● "
-    buf_size = 100
+    buf_size = 24
+    alloc = true
 )]
 enum ErrTypes {
     HttpResponse(usize),

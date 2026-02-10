@@ -193,28 +193,3 @@
 //!
 
 pub use resext_macro::resext;
-
-/// Panic with message if `condition` is true
-///
-/// Accepts a message as any type that implements `std::fmt::Display`
-///
-/// ## Examples
-///
-/// ```rust,ignore
-/// use resext::panic_if;
-///
-/// let x = 5;
-///
-/// panic_if!(x > 10, "x is too big", 1);
-/// panic_if!(x > 10, format!("x={} is too big", x), 1);
-/// ```
-#[cfg(feature = "std")]
-#[macro_export]
-macro_rules! panic_if {
-    ($condition:expr, $msg:expr, $code:expr) => {
-        if $condition {
-            eprintln!("{}", $msg);
-            std::process::exit($code);
-        }
-    };
-}
