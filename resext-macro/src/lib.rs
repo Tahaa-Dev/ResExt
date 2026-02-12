@@ -7,11 +7,13 @@
 //!
 //! The proc macro generates all necessary error handling code from a simple attribute:
 //!
-//! ```rust,ignore
+//! ```rust
+//! use resext_macro::resext;
+//!
 //! #[resext]
 //! enum MyError {
 //!     Io(std::io::Error),
-//!     Network(reqwest::Error),
+//!     Utf8(core::str::Utf8Error),
 //! }
 //! ```
 //!
@@ -41,8 +43,10 @@ use syn::{
 ///
 /// Basic usage with default settings:
 ///
-/// ```rust,ignore
-/// #[resext]
+/// ```rust
+/// use resext_macro::resext;
+///
+/// #[resext(alias = Resext)]
 /// enum MyError {
 ///     Io(std::io::Error),
 ///     Parse(std::num::ParseIntError),
@@ -51,15 +55,18 @@ use syn::{
 ///
 /// With custom formatting:
 ///
-/// ```rust,ignore
+/// ```rust
+/// use resext_macro::resext;
+///
 /// #[resext(
 ///     prefix = "ERROR: ",
 ///     delimiter = " -> ",
 ///     include_variant = true
+///     alias = MyRes
 /// )]
 /// enum MyError {
-///     Network(reqwest::Error),
-///     Database(sqlx::Error),
+///     Fmt(std::fmt::Error),
+///     EnvVar(std::env::VarError),
 /// }
 /// ```
 ///
@@ -83,13 +90,13 @@ use syn::{
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use resext::resext;
+/// ```rust
+/// use resext_macro::resext;
 ///
 /// #[resext(alias = AppResult)]
 /// enum AppError {
 ///     Io(std::io::Error),
-///     Network(reqwest::Error),
+///     EnvVar(std::env::VarError),
 /// }
 ///
 /// fn example() -> AppResult<()> {
