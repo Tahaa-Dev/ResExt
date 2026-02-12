@@ -112,6 +112,15 @@ pub type AppResult<T> = Result<T, ResErr>;
 
 - `buf_size` sets the size for the inline context storage byte buffer, so with the attribute above, you get 72 bytes of context messages (including delimiters, so it's more accurately `buf_size - (number_of_messages - 1) * len_of_delimiter`)
 
+### Heap & std support
+
+```rust
+#[resext(std = true, alloc = true)]
+```
+
+- `std` adds support for std-only methods (e.g. `.or_exit()`)
+- `alloc` adds heap spilling if context exceeds `buf_size`
+
 ---
 
 ## Supported Variant Types
@@ -162,6 +171,7 @@ Displays as the variant name: `NotFound`
 
 - Context storage uses `[u8; BUF_SIZE]` for string data
 - Zero-alloc even on errors
+- Only allocates if alloc attribute is true which is optional
 
 ---
 

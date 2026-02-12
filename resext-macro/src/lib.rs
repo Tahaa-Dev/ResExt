@@ -419,6 +419,18 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    let heap = {
+        if std {
+            quote! {
+                Heap(Vec<u8>),
+            }
+        } else {
+            quote! {
+                Heap(alloc::vec::Vec<u8>),
+            }
+        }
+    };
+
     let gen_buf = {
         if !alloc {
             quote! {
@@ -492,7 +504,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 enum #buf_name {
                     Stack { buf: [u8; #buf_size], curr_pos: u16 },
-                    Heap(alloc::vec::Vec<u8>),
+                    #heap
                 }
 
                 impl #buf_name {
@@ -529,13 +541,16 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 let cap = #buf_size - pos;
 
                                 if bytes.len() > cap {
-                                    let mut vec = alloc::vec::Vec::new();
-                                    vec.reserve_exact(pos + bytes.len());
+                                    {
+                                        extern crate alloc;
+                                        let mut vec = alloc::vec::Vec::new();
+                                        vec.reserve_exact(pos + bytes.len());
 
-                                    vec.extend_from_slice(&buf[..pos]);
-                                    vec.extend_from_slice(bytes);
+                                        vec.extend_from_slice(&buf[..pos]);
+                                        vec.extend_from_slice(bytes);
 
-                                    *self = #buf_name::Heap(vec);
+                                        *self = #buf_name::Heap(vec);
+                                    }
                                 } else {
                                     buf[pos..pos + bytes.len()].copy_from_slice(bytes);
                                     *curr_pos += bytes.len() as u16;
