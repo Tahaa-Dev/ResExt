@@ -5,7 +5,7 @@
 [![CI](https://github.com/Tahaa-Dev/ResExt/workflows/CI/badge.svg)](https://github.com/Tahaa-Dev/ResExt/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ResExt provides ergonomic error-handling similar to anyhow, but it uses explicit types with `From<E>` trait `impl`s, zero-alloc for every use case and inline byte buffers for context storage.
+**Easy, zero-alloc, ergonomic error-handling with no-std support and optional context heap spilling**
 
 ---
 
@@ -21,7 +21,7 @@ cargo add resext
 
 ```toml
 [dependencies]
-resext = "0.9"
+resext = "1.0.0"
 ```
 
 ---
@@ -54,7 +54,7 @@ fn read_config() -> Res<String> {
 - **Context chains** - Add context to errors as they propagate
 - **Custom formatting** - Configure error display with attributes
 - **Easy error-handling** - Ergonomic, anyhow-like error-handling for seamless `?` usage for error-propagation
-- **Zero-alloc** - ResExt is 100% allocation free for restricted environments with inline arrays for context buffers and no boxing (type erasure)
+- **Zero-alloc** - ResExt is allocation free (with optional heap spilling if needed) for restricted environments with inline arrays for context buffers and no boxing (type erasure)
 
 ---
 
@@ -65,9 +65,9 @@ fn read_config() -> Res<String> {
     prefix = "ERROR: ",
     delimiter = " -> ",
     include_variant = true,
-    alias = AppResult
+    alias = ApiResult
 )]
-enum MyError {
+enum ApiError {
     Network(reqwest::Error),
     Database(sqlx::Error),
 }

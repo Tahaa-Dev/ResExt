@@ -100,8 +100,13 @@ use syn::{
 /// }
 ///
 /// fn example() -> AppResult<()> {
-///     std::fs::read("file.txt")
+///     let content = std::fs::read("file.txt")
 ///         .context("Failed to read file")?;
+///
+///     let var_name = "ENV_VAR";
+///     let var = std::env::var(var_name)
+///         .with_context(format_args!("Failed to get environment variable: {}", var_name))?;
+///
 ///     Ok(())
 /// }
 /// ```
