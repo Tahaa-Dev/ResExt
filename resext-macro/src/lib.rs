@@ -413,11 +413,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 struct #buf_name {
                     curr_pos: u16,
                     buf: [u8; #buf_size],
+                    truncate: bool,
                 }
 
                 impl #buf_name {
                     fn new() -> Self {
-                        Self { buf: [0; #buf_size], curr_pos: 0 }
+                        Self { buf: [0; #buf_size], curr_pos: 0, truncate: false }
                     }
 
                     fn get_slice(&self) -> &[u8] {
@@ -427,6 +428,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     fn is_empty(&self) -> bool {
                         self.curr_pos == 0
                     }
+
+                    fn truncate(&self) -> bool {
+                        self.truncate
+                    }
                 }
 
                 impl core::fmt::Write for #buf_name {
@@ -435,7 +440,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         let pos = self.curr_pos as usize;
                         let cap = #buf_size - pos;
 
-                        let limit = core::cmp::min(cap, bytes.len());
+                        let limit = if cap < bytes.len() {
+                            self.truncate = true;
+                            cap
+                        } else {
+                            bytes.len()
+                        };
 
                         let to_copy = match bytes[..limit]
                             .iter()
@@ -485,11 +495,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
 
-                    fn reserve_exact(&mut self, bytes: usize) {
-                        match self {
-                            Self::Stack { buf: _, curr_pos: _ } => {}
-                            Self::Heap(buf) => buf.reserve_exact(bytes),
-                        }
+                    fn truncate(&self) -> bool {
+                        false
                     }
 
                     fn is_empty(&self) -> bool {
@@ -568,9 +575,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else {
                     write!(
                         f,
-                        "{}{}\n{}{}{}",
+                        "{}{}{}\n{}{}{}",
                         #prefix,
                         unsafe { core::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        if self.msg.truncate() { "..." } else { "" },
                         #source_prefix,
                         self.source,
                         #suffix,
@@ -586,9 +594,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else {
                     write!(
                         f,
-                        "{}{}\n{}{:?}{}",
+                        "{}{}{}\n{}{:?}{}",
                         #prefix,
                         unsafe { core::str::from_utf8_unchecked(&self.msg.get_slice()) },
+                        if self.msg.truncate() { "..." } else { "" },
                         #source_prefix,
                         self.source,
                         #suffix,
@@ -601,15 +610,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// Helper method for constructing #struct_name without using `.context()` or
             /// `.with_context()` on a Result.
             ///
-            /// This method:
-            /// ```rust,ignore
-            /// ResErr::new(b"Failed to read file".to_vec(), std::io::Error::other(""));
-            /// ```
+            /// # Examples
             ///
-            /// - is the same as:
             /// ```rust,ignore
-            /// ResErr { b"Failed to read file".to_vec(),
-            /// ErrorEnum::Io(std::io::Error::other("")) }
+            /// ResErr::new("Failed to read file", std::io::Error::other(""));
             /// ```
             #vis fn new<E>(msg: &str, source: E) -> Self where #enum_name: From<E> {
                 use core::fmt::Write;

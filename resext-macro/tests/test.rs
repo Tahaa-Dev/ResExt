@@ -109,7 +109,7 @@ mod isolated_test {
 
         assert_eq!(
             format_args!("{}", res.unwrap_err()).to_string(),
-            "Good\nError: invalid utf-8 sequence of 1 bytes from index 1"
+            "Good...\nError: invalid utf-8 sequence of 1 bytes from index 1"
         );
     }
 }
