@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.9.0- 2026-02-06
+## v1.0.0 - 2026-02-13
+
+### BREAKING CHANGES:
+
+- Removed `.byte_context()` method
+- Replaced feature flags for std and alloc to attributes in the macro
+
+### Added
+
+- Heap spilling if context exceeds `buf_size`
+- New methods: `.fmt_log()` and `.write_log()`
+- Full no-std support
+
+---
+
+## v0.9.0 - 2026-02-06
 
 ### BREAKING CHANGES:
 
