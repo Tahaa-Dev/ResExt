@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.1 - 2026-02-13
+
+### BREAKING CHANGES:
+
+- Removed all methods from extension trait except for context traits (`.context()` and `.with_context()`)
+- Removed `std` attribute as it is useless now
+
+---
+
 ## v1.0.0 - 2026-02-13
 
 ### BREAKING CHANGES:
