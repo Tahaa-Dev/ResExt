@@ -59,9 +59,7 @@ This expands to approximately 200 lines of boilerplate including:
 ### Source Formatting
 
 ```rust
-#[resext(
-    source_prefix = "Caused by: "
-)]
+#[resext(source_prefix = "Caused by: ")]
 ```
 
 - `source_prefix` - Prepended to underlying error (default: "Error: ")
@@ -69,9 +67,7 @@ This expands to approximately 200 lines of boilerplate including:
 ### Variant Display
 
 ```rust
-#[resext(
-    include_variant = true
-)]
+#[resext(include_variant = true)]
 enum MyError {
     Io(std::io::Error),
     Network(reqwest::Error),
@@ -112,13 +108,12 @@ pub type AppResult<T> = Result<T, ResErr>;
 
 - `buf_size` sets the size for the inline context storage byte buffer, so with the attribute above, you get 72 bytes of context messages (including delimiters, so it's more accurately `buf_size - (number_of_messages - 1) * len_of_delimiter`)
 
-### Heap & std support
+### Heap support
 
 ```rust
-#[resext(std = true, alloc = true)]
+#[resext(alloc = true)]
 ```
 
-- `std` adds support for std-only methods (e.g. `.or_exit()`)
 - `alloc` adds heap spilling if context exceeds `buf_size`
 
 ---
@@ -182,8 +177,6 @@ Displays as the variant name: `NotFound`
 - `syn` for parsing Rust syntax
 - `quote` for code generation
 - `proc-macro2` for token manipulation
-
-2. The macro is always UTF-8 safe except for the `unsafe` method `.byte_context(bytes)`
 
 ---
 
