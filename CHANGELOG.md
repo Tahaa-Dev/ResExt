@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.2 - 2026-02-16
+
+## Fixed
+
+- `#[cfg(not(doc))]` making docs fail by changing it to `#[doc(hidden)]`
+
+---
+
 ## v1.0.1 - 2026-02-13
 
 ### BREAKING CHANGES:
