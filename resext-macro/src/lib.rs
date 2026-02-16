@@ -404,7 +404,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///
         /// This type is automatically created when you use `.context()` or
         /// `.with_context()` on a Result.
-        #[cfg(not(doc))]
+        #[doc(hidden)]
         #vis struct #struct_name {
             msg: #buf_name,
             #vis source: #enum_name
@@ -465,7 +465,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// ```rust,ignore
             /// ResErr::new("Failed to read file", std::io::Error::other(""));
             /// ```
-            #[cfg(not(doc))]
+            #[doc(hidden)]
             #vis fn new<E>(msg: &str, source: E) -> Self where #enum_name: From<E> {
                 use core::fmt::Write;
                 let mut buf = #buf_name::new();
@@ -493,7 +493,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// std::fs::read("file.txt")
         ///     .context("Failed to read file")?;
         /// ```
-        #[cfg(not(doc))]
+        #[doc(hidden)]
         #vis trait #trait_name<'r, T> {
             /// Add a static context message to an error.
             ///
@@ -505,7 +505,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// std::fs::read("config.toml")
             ///     .context("Failed to read config")?;
             /// ```
-            #[cfg(not(doc))]
+            #[doc(hidden)]
             fn context(self, msg: &str) -> Result<T, #struct_name>;
 
             /// Add a dynamic context message (computed only on error).
@@ -518,7 +518,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// std::fs::read(path)
             ///     .with_context(|| format!("Failed to read: {}", path))?;
             /// ```
-            #[cfg(not(doc))]
+            #[doc(hidden)]
             fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name>;
         }
 
@@ -592,7 +592,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///     Res!(std::io::Error::other("I/O Error"), "Failed to read file: {}", file_name);
         /// }
         /// ```
-        #[cfg(not(doc))]
+        #[doc(hidden)]
         #[allow(unused_macros)]
         #export_macro
         macro_rules! #alias {
