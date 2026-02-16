@@ -3,7 +3,7 @@ members = ["resext", "resext-macro"]
 resolver = "2"
 
 [workspace.package]
-version = "1.0.2"
+version = "1.1.0"
 edition = "2024"
 authors = ["Taha Mahmoud <tahamahmoud7097@gmail.com"]
 categories = ["rust-patterns", "no-std"]

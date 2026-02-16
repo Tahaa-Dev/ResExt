@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.1.0 - 2026-02-17
+
+### BREAKING CHANGES:
+
+- Made `.context()` and `.with_context()` a single method
+- Made the proc-macro not work without the main crate for better docs and util support in the future
+
+---
+
 ## v1.0.2 - 2026-02-16
 
 ## Fixed

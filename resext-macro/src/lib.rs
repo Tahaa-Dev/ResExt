@@ -463,8 +463,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl #struct_name {
-            /// Helper method for constructing #struct_name without using `.context()` or
-            /// `.context()` on a Result.
+            /// Helper method for constructing #struct_name without using `.context()`
+            /// on a Result.
             ///
             /// # Examples
             ///
@@ -501,9 +501,10 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// ```
         #[doc(hidden)]
         #vis trait #trait_name<'r, T, S> {
-            /// Add a static context message to an error.
+            /// Add context to an error.
             ///
-            /// The message is only allocated if an error occurs.
+            /// Acceprts `&str` or `core::fmt::Arguments<'_>`. The message is only allocated if an
+            /// error occurs.
             ///
             /// # Examples
             ///
