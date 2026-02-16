@@ -8,6 +8,7 @@
 //! The proc macro generates all necessary error handling code from a simple attribute:
 //!
 //! ```rust
+//! # mod resext { pub mod __private { pub trait ToContext {} } }
 //! use resext_macro::resext;
 //!
 //! #[resext]
@@ -44,6 +45,7 @@ use syn::{
 /// Basic usage with default settings:
 ///
 /// ```rust
+/// # mod resext { pub mod __private { pub trait ToContext {} } }
 /// # use resext_macro::resext;
 /// #[resext(alias = Resext)]
 /// enum MyError {
@@ -55,6 +57,7 @@ use syn::{
 /// With custom formatting:
 ///
 /// ```rust
+/// # mod resext { pub mod __private { pub trait ToContext {} } }
 /// # use resext_macro::resext;
 /// #[resext(
 ///     prefix = "ERROR: ",
@@ -88,6 +91,9 @@ use syn::{
 /// # Examples
 ///
 /// ```rust
+/// # mod resext { pub mod __private { pub trait ToContext {}
+/// # impl ToContext for &str {}
+/// # impl ToContext for core::fmt::Arguments<'_> {} } }
 /// # use resext_macro::resext;
 /// #[resext(alias = AppResult)]
 /// enum AppError {
@@ -101,7 +107,7 @@ use syn::{
 ///
 ///     let var_name = "ENV_VAR";
 ///     let var = std::env::var(var_name)
-///         .with_context(format_args!("Failed to get environment variable: {}", var_name))?;
+///         .context(format_args!("Failed to get environment variable: {}", var_name))?;
 ///
 ///     Ok(())
 /// }
@@ -403,7 +409,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// Wrapper type that holds your error with optional context messages.
         ///
         /// This type is automatically created when you use `.context()` or
-        /// `.with_context()` on a Result.
+        /// `.context()` on a Result.
         #[doc(hidden)]
         #vis struct #struct_name {
             msg: #buf_name,
@@ -458,7 +464,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl #struct_name {
             /// Helper method for constructing #struct_name without using `.context()` or
-            /// `.with_context()` on a Result.
+            /// `.context()` on a Result.
             ///
             /// # Examples
             ///
@@ -494,7 +500,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///     .context("Failed to read file")?;
         /// ```
         #[doc(hidden)]
-        #vis trait #trait_name<'r, T> {
+        #vis trait #trait_name<'r, T, S> {
             /// Add a static context message to an error.
             ///
             /// The message is only allocated if an error occurs.
@@ -506,24 +512,13 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             ///     .context("Failed to read config")?;
             /// ```
             #[doc(hidden)]
-            fn context(self, msg: &str) -> Result<T, #struct_name>;
-
-            /// Add a dynamic context message (computed only on error).
-            ///
-            /// Use this when the context message needs runtime information.
-            ///
-            /// # Examples
-            ///
-            /// ```rust,ignore
-            /// std::fs::read(path)
-            ///     .with_context(|| format!("Failed to read: {}", path))?;
-            /// ```
-            #[doc(hidden)]
-            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name>;
+            fn context(self, msg: S) -> Result<T, #struct_name>;
         }
 
-        impl<'r, T> #trait_name<'r, T> for Result<T, #struct_name> {
-            fn context(self, msg: &str) -> Result<T, #struct_name> {
+        use resext::__private::ToContext;
+
+        impl<'r, T, S: ToContext + core::fmt::Display> #trait_name<'r, T, S> for Result<T, #struct_name> {
+            fn context(self, msg: S) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
@@ -537,46 +532,19 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
-
-            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name> {
-                match self {
-                    Ok(ok) => Ok(ok),
-                    Err(mut err) => {
-                        use core::fmt::Write;
-                        if err.msg.is_empty() {
-                            let _ = write!(&mut err, "{}", args);
-                        } else {
-                            let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, args, #msg_suffix);
-                        }
-                        Err(err)
-                    }
-                }
-            }
         }
 
-        impl<'r, T, E: core::fmt::Display> #trait_name<'r, T> for Result<T, E>
+        impl<'r, T, E: core::fmt::Display, S: ToContext + core::fmt::Display> #trait_name<'r, T, S> for Result<T, E>
         where
             #enum_name: From<E>,
         {
-            fn context(self, msg: &str) -> Result<T, #struct_name> {
+            fn context(self, msg: S) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(err) => {
                         use core::fmt::Write;
                         let mut buf = #buf_name::new();
                         let _ = write!(&mut buf, "{}", msg);
-                        Err(#struct_name { msg: buf, source: err.into() })
-                    }
-                }
-            }
-
-            fn with_context(self, args: core::fmt::Arguments<'r>) -> Result<T, #struct_name> {
-                match self {
-                    Ok(ok) => Ok(ok),
-                    Err(err) => {
-                        use core::fmt::Write;
-                        let mut buf = #buf_name::new();
-                        let _ = write!(&mut buf, "{}", args);
                         Err(#struct_name { msg: buf, source: err.into() })
                     }
                 }
@@ -609,7 +577,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 {
                     use core::fmt::Write;
                     let mut buf = #buf_name::new();
-                    let _ = write!(&mut buf "{}", format_args!($fmt));
+                    let _ = write!(&mut buf "{}", format_args!($msg));
                     return Err(#struct_name { msg: buf, source: #enum_name::from($src) });
                 }
             };

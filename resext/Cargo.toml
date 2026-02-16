@@ -11,4 +11,4 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-resext-macro = "0.9.0"
+resext-macro = "1.0.2"

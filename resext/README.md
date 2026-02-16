@@ -31,7 +31,7 @@ fn load_data(path: &str) -> Res<Data> {
         .context("Failed to read file")?;
     
     let data = serde_json::from_str(&content)
-        .with_context(format_args!("Failed to parse {}", path))?;
+        .context(format_args!("Failed to parse {}", path))?;
     
     Ok(data)
 }
@@ -76,27 +76,17 @@ enum MyError {
 
 ---
 
-# Context Methods
+## `.context()` Method
 
-## `.context(self, msg: &str)`
+Add static context to an error.
 
-Add static context to an error:
+Accepts `&str` or `core::fmt::Arguments<'_>`.
+
+### Example
 
 ```rust
 std::fs::read("file.txt")
     .context("Failed to read file")?;
-Ok::<(), ResErr>(())
-```
-
-## `.with_context(self, args: core::fmt::Arguments<'_>)`
-
-Add dynamic context to an error:
-
-```rust
-let path = "file.txt";
-
-std::fs::read(path)
-    .with_context(|| format!("Failed to read {}", path))?;
 ```
 
 ---
@@ -138,7 +128,7 @@ fn load_config(path: &str) -> Res<Config> {
         .context("Failed to read config")?;
     
     toml::from_str(&content)
-        .with_context(format_args!("Failed to parse {}", path))
+        .context(format_args!("Failed to parse {}", path))
 }
 ```
 

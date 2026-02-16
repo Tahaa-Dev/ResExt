@@ -5,6 +5,15 @@ use alloc::string::ToString;
 
 use resext_macro::resext;
 
+// Temporary module as usage in actual projects requires resext crate
+mod resext {
+    pub mod __private {
+        pub trait ToContext {}
+        impl ToContext for &str {}
+        impl ToContext for core::fmt::Arguments<'_> {}
+    }
+}
+
 #[resext(
     alias = Resext
     delimiter = " ● "
@@ -21,7 +30,7 @@ fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
 
-        let _ = core::str::from_utf8(&[0, 158, 22]).with_context(format_args!(
+        let _ = core::str::from_utf8(&[0, 158, 22]).context(format_args!(
             "Failed to format file extension from bytes for path: {}",
             path
         ))?;
@@ -65,7 +74,7 @@ fn test_long_context() -> Resext<()> {
 fn test_error_display_format() {
     let result: Resext<_> = core::str::from_utf8(&[0, 158, 22])
         .context("Failed to read config")
-        .with_context(format_args!("Failed to load application"));
+        .context(format_args!("Failed to load application"));
 
     let err = result.unwrap_err();
     let output = format_args!("{}", err).to_string();
@@ -98,6 +107,16 @@ fn test_new_method() {
 mod isolated_test {
     use alloc::string::ToString;
     use resext_macro::resext;
+
+    // Temporary module as usage in actual projects requires resext crate
+    mod resext {
+        pub mod __private {
+            pub trait ToContext {}
+            impl ToContext for &str {}
+            impl ToContext for core::fmt::Arguments<'_> {}
+        }
+    }
+
     #[test]
     fn test_msg_truncation() {
         #[resext(buf_size = 5)]

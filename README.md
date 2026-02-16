@@ -42,7 +42,7 @@ fn read_config() -> Res<String> {
         .context("Failed to read config file")?;
     
     let value: i32 = content.trim().parse()
-        .context("Failed to parse config value")?;
+        .context(format_args!("Failed to parse config value: {}", &content))?;
     
     Ok(content)
 }

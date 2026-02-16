@@ -22,7 +22,7 @@ This expands to approximately 200 lines of boilerplate including:
 
 - `Display` and `Error` trait implementations
 -  Wrapper struct with inline zero-alloc context storage
--  Trait with context methods
+-  Trait with context method
 - `From` implementations for automatic conversion
 - Type alias for `Result<T, ResErr>`
 
