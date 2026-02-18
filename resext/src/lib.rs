@@ -150,6 +150,7 @@
 
 pub use resext_macro::resext;
 
+#[doc(hidden)]
 pub mod __private {
     pub trait ToContext {}
 
