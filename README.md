@@ -39,7 +39,7 @@ enum AppError {
 
 fn read_config() -> Res<String> {
     let content = std::fs::read_to_string("config.toml")
-        .context("Failed to read config file")?;
+        .context(|| format!("Failed to read file: {}", path))?;
     
     let value: i32 = content.trim().parse()
         .context(format_args!("Failed to parse config value: {}", &content))?;

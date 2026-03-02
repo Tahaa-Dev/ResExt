@@ -28,10 +28,10 @@ enum FileError {
 
 fn load_data(path: &str) -> Res<Data> {
     let content = std::fs::read_to_string(path)
-        .context("Failed to read file")?;
+        .context(|| format!("Failed to read file: {}", path))?;
     
     let data = serde_json::from_str(&content)
-        .context(format_args!("Failed to parse {}", path))?;
+        .context(format_args!("Failed to parse file: {}", path))?;
     
     Ok(data)
 }
@@ -80,7 +80,7 @@ enum MyError {
 
 Add static context to an error.
 
-Accepts `&str` or `core::fmt::Arguments<'_>`.
+Accepts `&str`, a closure (`impl FnOnce() -> impl core::fmt::Display`) or `core::fmt::Arguments<'_>`.
 
 ### Example
 

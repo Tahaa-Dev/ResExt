@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "resext"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "resext-macro 1.0.2",
 ]
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "resext-macro"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "proc-macro2",
  "quote",

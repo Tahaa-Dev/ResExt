@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.0 - 2026-03-02
+
+### Added
+
+- Support for closures in `.context()` method via taking `impl FnOnce() -> impl core::fmt::Display`
+
+### Fixed
+
+- Private module being visible in docs
+
+---
+
 ## v1.1.0 - 2026-02-17
 
 ### BREAKING CHANGES:
