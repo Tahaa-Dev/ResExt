@@ -64,7 +64,8 @@
 //!
 //! Add context to an error.
 //!
-//! This method can take `&str` or `core::fmt::Arguments<'_>` as a message
+//! This method can take `&str`, `impl FnOnce() -> impl core::fmt::Display`
+//! or `core::fmt::Arguments<'_>` as a message
 //!
 //! ### Example:
 //!
@@ -152,8 +153,28 @@ pub use resext_macro::resext;
 
 #[doc(hidden)]
 pub mod __private {
-    pub trait ToContext {}
+    pub trait ToContext<S: core::fmt::Display> {
+        fn get_value(self) -> S;
+    }
 
-    impl ToContext for &str {}
-    impl ToContext for core::fmt::Arguments<'_> {}
+    impl<'a> ToContext<&'a str> for &'a str {
+        fn get_value(self) -> &'a str {
+            self
+        }
+    }
+
+    impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
+        fn get_value(self) -> core::fmt::Arguments<'a> {
+            self
+        }
+    }
+
+    impl<F, S: core::fmt::Display> ToContext<S> for F
+    where
+        F: FnOnce() -> S,
+    {
+        fn get_value(self) -> S {
+            self()
+        }
+    }
 }

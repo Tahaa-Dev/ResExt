@@ -8,9 +8,9 @@
 //! The proc macro generates all necessary error handling code from a simple attribute:
 //!
 //! ```rust
-//! # mod resext { pub mod __private { pub trait ToContext {} } }
-//! use resext_macro::resext;
-//!
+//! # mod resext { pub mod __private { pub trait ToContext<S: core::fmt::Display> { fn
+//! # get_value(self) -> S; } } }
+//! # use resext_macro::resext;
 //! #[resext]
 //! enum MyError {
 //!     Io(std::io::Error),
@@ -45,7 +45,8 @@ use syn::{
 /// Basic usage with default settings:
 ///
 /// ```rust
-/// # mod resext { pub mod __private { pub trait ToContext {} } }
+/// # mod resext { pub mod __private { pub trait ToContext<S: core::fmt::Display> { fn
+/// # get_value(self) -> S; } } }
 /// # use resext_macro::resext;
 /// #[resext(alias = Resext)]
 /// enum MyError {
@@ -57,7 +58,8 @@ use syn::{
 /// With custom formatting:
 ///
 /// ```rust
-/// # mod resext { pub mod __private { pub trait ToContext {} } }
+/// # mod resext { pub mod __private { pub trait ToContext<S: core::fmt::Display> { fn
+/// # get_value(self) -> S; } } }
 /// # use resext_macro::resext;
 /// #[resext(
 ///     prefix = "ERROR: ",
@@ -91,9 +93,31 @@ use syn::{
 /// # Examples
 ///
 /// ```rust
-/// # mod resext { pub mod __private { pub trait ToContext {}
-/// # impl ToContext for &str {}
-/// # impl ToContext for core::fmt::Arguments<'_> {} } }
+/// # mod resext {
+/// #     pub mod __private {
+/// #         pub trait ToContext<S: core::fmt::Display> {
+/// #             fn get_value(self) -> S;
+/// #         }
+/// #     
+/// #         impl<'a> ToContext<&'a str> for &'a str {
+/// #             fn get_value(self) -> &'a str {
+/// #                 self
+/// #             }
+/// #         }
+/// #     
+/// #         impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
+/// #             fn get_value(self) -> core::fmt::Arguments<'a> {
+/// #                 self
+/// #             }
+/// #         }
+/// #     
+/// #         impl<F, S: core::fmt::Display> ToContext<S> for F where F: FnOnce() -> S {
+/// #             fn get_value(self) -> S {
+/// #                 self()
+/// #             }
+/// #         }
+/// #     }
+/// # }
 /// # use resext_macro::resext;
 /// #[resext(alias = AppResult)]
 /// enum AppError {
@@ -101,11 +125,10 @@ use syn::{
 ///     EnvVar(std::env::VarError),
 /// }
 ///
-/// fn example() -> AppResult<()> {
-///     let content = std::fs::read("file.txt")
-///         .context("Failed to read file")?;
+/// fn example(path: &str, var_name: &str) -> AppResult<()> {
+///     let content = std::fs::read(path)
+///         .context(|| format!("Failed to read file: {}", path))?;
 ///
-///     let var_name = "ENV_VAR";
 ///     let var = std::env::var(var_name)
 ///         .context(format_args!("Failed to get environment variable: {}", var_name))?;
 ///
@@ -500,7 +523,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         ///     .context("Failed to read file")?;
         /// ```
         #[doc(hidden)]
-        #vis trait #trait_name<'r, T, S> {
+        #vis trait #trait_name<T, S, C> {
             /// Add context to an error.
             ///
             /// Acceprts `&str` or `core::fmt::Arguments<'_>`. The message is only allocated if an
@@ -518,16 +541,16 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         use resext::__private::ToContext;
 
-        impl<'r, T, S: ToContext + core::fmt::Display> #trait_name<'r, T, S> for Result<T, #struct_name> {
+        impl<T, C: core::fmt::Display, S: ToContext<C>> #trait_name<T, S, C> for Result<T, #struct_name> {
             fn context(self, msg: S) -> Result<T, #struct_name> {
                 match self {
                     Ok(ok) => Ok(ok),
                     Err(mut err) => {
                         use core::fmt::Write;
                         if err.msg.is_empty() {
-                            let _ = write!(&mut err, "{}", msg);
+                            let _ = write!(&mut err, "{}", msg.get_value());
                         } else {
-                            let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, msg, #msg_suffix);
+                            let _ = write!(&mut err, "\n{}{}{}{}", #delimiter, #msg_prefix, msg.get_value(), #msg_suffix);
                         }
                         Err(err)
                     }
@@ -535,7 +558,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        impl<'r, T, E: core::fmt::Display, S: ToContext + core::fmt::Display> #trait_name<'r, T, S> for Result<T, E>
+        impl<T, E, C: core::fmt::Display, S: ToContext<C>> #trait_name<T, S, C> for Result<T, E>
         where
             #enum_name: From<E>,
         {
@@ -545,7 +568,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Err(err) => {
                         use core::fmt::Write;
                         let mut buf = #buf_name::new();
-                        let _ = write!(&mut buf, "{}", msg);
+                        let _ = write!(&mut buf, "{}", msg.get_value());
                         Err(#struct_name { msg: buf, source: err.into() })
                     }
                 }

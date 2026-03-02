@@ -8,9 +8,30 @@ use resext_macro::resext;
 // Temporary module as usage in actual projects requires resext crate
 mod resext {
     pub mod __private {
-        pub trait ToContext {}
-        impl ToContext for &str {}
-        impl ToContext for core::fmt::Arguments<'_> {}
+        pub trait ToContext<S: core::fmt::Display> {
+            fn get_value(self) -> S;
+        }
+
+        impl<'a> ToContext<&'a str> for &'a str {
+            fn get_value(self) -> &'a str {
+                self
+            }
+        }
+
+        impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
+            fn get_value(self) -> core::fmt::Arguments<'a> {
+                self
+            }
+        }
+
+        impl<F, S: core::fmt::Display> ToContext<S> for F
+        where
+            F: FnOnce() -> S,
+        {
+            fn get_value(self) -> S {
+                self()
+            }
+        }
     }
 }
 
@@ -111,9 +132,30 @@ mod isolated_test {
     // Temporary module as usage in actual projects requires resext crate
     mod resext {
         pub mod __private {
-            pub trait ToContext {}
-            impl ToContext for &str {}
-            impl ToContext for core::fmt::Arguments<'_> {}
+            pub trait ToContext<S: core::fmt::Display> {
+                fn get_value(self) -> S;
+            }
+
+            impl<'a> ToContext<&'a str> for &'a str {
+                fn get_value(self) -> &'a str {
+                    self
+                }
+            }
+
+            impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
+                fn get_value(self) -> core::fmt::Arguments<'a> {
+                    self
+                }
+            }
+
+            impl<F, S: core::fmt::Display> ToContext<S> for F
+            where
+                F: FnOnce() -> S,
+            {
+                fn get_value(self) -> S {
+                    self()
+                }
+            }
         }
     }
 
