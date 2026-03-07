@@ -54,7 +54,7 @@ This expands to approximately 200 lines of boilerplate including:
 
 - `msg_prefix` - Prepended to each context message
 - `msg_suffix` - Appended to each context message
-- `delimiter` - Separator between contexts (default: " - ")
+- `delimiter` - Separator between contexts (default: "\n - ")
 
 ### Source Formatting
 

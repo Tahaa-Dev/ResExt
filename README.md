@@ -30,6 +30,7 @@ resext = "1.0.0"
 
 ```rust
 use resext::resext;
+use resext::ctx;
 
 #[resext]
 enum AppError {
@@ -39,10 +40,10 @@ enum AppError {
 
 fn read_config() -> Res<String> {
     let content = std::fs::read_to_string("config.toml")
-        .context(|| format!("Failed to read file: {}", path))?;
+        .context(ctx!("Failed to read file: {}", path))?;
     
     let value: i32 = content.trim().parse()
-        .context(format_args!("Failed to parse config value: {}", &content))?;
+        .context(ctx!("Failed to parse config value: {}", &content))?;
     
     Ok(content)
 }

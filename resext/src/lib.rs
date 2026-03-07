@@ -64,8 +64,8 @@
 //!
 //! Add context to an error.
 //!
-//! This method can take `&str`, `impl FnOnce() -> impl core::fmt::Display`
-//! or `core::fmt::Arguments<'_>` as a message
+//! Accepts `&str` or `ctx!()` macro which outputs a lazily evaluated closure with usage similar to 
+//! old `format_args!()` API
 //!
 //! ### Example:
 //!
@@ -138,7 +138,7 @@
 //! async fn fetch_user(id: u64) -> ApiResult<User> {
 //!     let response = reqwest::get(format!("/users/{}", id))
 //!         .await
-//!         .context(format_args!("Failed to fetch user: {}", id))?;
+//!         .context(ctx!("Failed to fetch user: {}", id))?;
 //!     
 //!     let user = response.json()
 //!         .await
@@ -148,33 +148,57 @@
 //! }
 //! ```
 //!
-
 pub use resext_macro::resext;
 
-#[doc(hidden)]
-pub mod __private {
-    pub trait ToContext<S: core::fmt::Display> {
-        fn get_value(self) -> S;
-    }
+#[macro_export]
+macro_rules! ctx {
+    ($fmt:expr, $($args:tt)*) => {
+        {
+            struct Writer<W: core::fmt::Write + ?Sized>(W);
 
-    impl<'a> ToContext<&'a str> for &'a str {
-        fn get_value(self) -> &'a str {
-            self
-        }
-    }
+            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+                fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                    self.0.write_str(s)
+                }
+            }
 
-    impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
-        fn get_value(self) -> core::fmt::Arguments<'a> {
-            self
-        }
-    }
+            |w, d, mp, ms| {
+                use core::fmt::Write;
 
-    impl<F, S: core::fmt::Display> ToContext<S> for F
-    where
-        F: FnOnce() -> S,
-    {
-        fn get_value(self) -> S {
-            self()
+                let mut w = Writer(w);
+
+                let _ = w.write_str(d);
+                let _ = w.write_str(mp);
+                let _ = write!(w, $fmt, $($args)*);
+                let _ = w.write_str(ms);
+
+                w.0
+            }
         }
-    }
+    };
+
+    ($fmt:expr) => {
+        {
+            struct Writer<W: core::fmt::Write + ?Sized>(W);
+
+            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+                fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                    self.0.write_str(s)
+                }
+            }
+
+            |w, d, mp, ms| {
+                use core::fmt::Write;
+
+                let mut w = Writer(w);
+
+                let _ = w.write_str(d);
+                let _ = w.write_str(mp);
+                let _ = write!(w, $fmt);
+                let _ = w.write_str(ms);
+
+                w.0
+            }
+        }
+    };
 }

@@ -5,34 +5,57 @@ use alloc::string::ToString;
 
 use resext_macro::resext;
 
-// Temporary module as usage in actual projects requires resext crate
-mod resext {
-    pub mod __private {
-        pub trait ToContext<S: core::fmt::Display> {
-            fn get_value(self) -> S;
-        }
-
-        impl<'a> ToContext<&'a str> for &'a str {
-            fn get_value(self) -> &'a str {
-                self
-            }
-        }
-
-        impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
-            fn get_value(self) -> core::fmt::Arguments<'a> {
-                self
-            }
-        }
-
-        impl<F, S: core::fmt::Display> ToContext<S> for F
-        where
-            F: FnOnce() -> S,
+// Temporary macro as usage in actual projects requires resext crate
+macro_rules! ctx {
+    ($fmt:expr, $($args:tt)*) => {
         {
-            fn get_value(self) -> S {
-                self()
+            struct Writer<W: core::fmt::Write + ?Sized>(W);
+
+            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+                fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                    self.0.write_str(s)
+                }
+            }
+
+            |w, d, mp, ms| {
+                use core::fmt::Write;
+
+                let mut w = Writer(w);
+
+                let _ = w.write_str(d);
+                let _ = w.write_str(mp);
+                let _ = write!(w, $fmt, $($args)*);
+                let _ = w.write_str(ms);
+
+                w.0
             }
         }
-    }
+    };
+
+    ($fmt:expr) => {
+        {
+            struct Writer<W: core::fmt::Write + ?Sized>(W);
+
+            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+                fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                    self.0.write_str(s)
+                }
+            }
+
+            |w, d, mp, ms| {
+                use core::fmt::Write;
+
+                let mut w = Writer(w);
+
+                let _ = w.write_str(d);
+                let _ = w.write_str(mp);
+                let _ = write!(w, $fmt);
+                let _ = w.write_str(ms);
+
+                w.0
+            }
+        }
+    };
 }
 
 #[resext(
@@ -51,7 +74,7 @@ fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
 
-        let _ = core::str::from_utf8(&[0, 158, 22]).context(format_args!(
+        let _ = core::str::from_utf8(&[0, 158, 22]).context(ctx!(
             "Failed to format file extension from bytes for path: {}",
             path
         ))?;
@@ -95,7 +118,7 @@ fn test_long_context() -> Resext<()> {
 fn test_error_display_format() {
     let result: Resext<_> = core::str::from_utf8(&[0, 158, 22])
         .context("Failed to read config")
-        .context(format_args!("Failed to load application"));
+        .context(ctx!("Failed to load application"));
 
     let err = result.unwrap_err();
     let output = format_args!("{}", err).to_string();
@@ -128,36 +151,6 @@ fn test_new_method() {
 mod isolated_test {
     use alloc::string::ToString;
     use resext_macro::resext;
-
-    // Temporary module as usage in actual projects requires resext crate
-    mod resext {
-        pub mod __private {
-            pub trait ToContext<S: core::fmt::Display> {
-                fn get_value(self) -> S;
-            }
-
-            impl<'a> ToContext<&'a str> for &'a str {
-                fn get_value(self) -> &'a str {
-                    self
-                }
-            }
-
-            impl<'a> ToContext<core::fmt::Arguments<'a>> for core::fmt::Arguments<'a> {
-                fn get_value(self) -> core::fmt::Arguments<'a> {
-                    self
-                }
-            }
-
-            impl<F, S: core::fmt::Display> ToContext<S> for F
-            where
-                F: FnOnce() -> S,
-            {
-                fn get_value(self) -> S {
-                    self()
-                }
-            }
-        }
-    }
 
     #[test]
     fn test_msg_truncation() {
