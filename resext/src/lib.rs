@@ -64,7 +64,7 @@
 //!
 //! Add context to an error.
 //!
-//! Accepts `&str` or `ctx!()` macro which outputs a lazily evaluated closure with usage similar to 
+//! Accepts `&str` or `ctx!()` macro which outputs a lazily evaluated closure with usage similar to
 //! old `format_args!()` API
 //!
 //! ### Example:

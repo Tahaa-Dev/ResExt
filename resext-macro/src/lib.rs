@@ -91,23 +91,23 @@ use syn::{
 /// #     ($fmt:expr, $($args:tt)*) => {
 /// #         {
 /// #             struct Writer<W: core::fmt::Write + ?Sized>(W);
-/// # 
+/// #
 /// #             impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
 /// #                 fn write_str(&mut self, s: &str) -> core::fmt::Result {
 /// #                     self.0.write_str(s)
 /// #                 }
 /// #             }
-/// # 
+/// #
 /// #             |w, d, mp, ms| {
 /// #                 use core::fmt::Write;
-/// # 
+/// #
 /// #                 let mut w = Writer(w);
-/// # 
+/// #
 /// #                 let _ = w.write_str(d);
 /// #                 let _ = w.write_str(mp);
 /// #                 let _ = write!(w, $fmt, $($args)*);
 /// #                 let _ = w.write_str(ms);
-/// # 
+/// #
 /// #                 w.0
 /// #             }
 /// #         }
@@ -594,7 +594,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                         let buf = #buf_name::new();
                         let mut err = #struct_name { msg: buf, source: #enum_name::from(err) };
-                        
+
                         let err = msg(err, "", "", "");
 
                         Err(err)

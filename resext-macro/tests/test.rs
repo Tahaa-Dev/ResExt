@@ -74,10 +74,8 @@ fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
 
-        let _ = core::str::from_utf8(&[0, 158, 22]).context(ctx!(
-            "Failed to format file extension from bytes for path: {}",
-            path
-        ))?;
+        let _ = core::str::from_utf8(&[0, 158, 22])
+            .context(ctx!("Failed to format file extension from bytes for path: {}", path))?;
 
         let _: Resext<()> = Err(286).context("Custom error")?;
 

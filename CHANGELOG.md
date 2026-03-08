@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.0 - 2026-03-07
+
+### Added
+
+- New `ctx!()` macro
+- Support for no-alloc lazily evaluated context with `ctx!()` macro
+
+### Removed
+
+- `ToContext` trait
+- Support for `core::fmt::Arguments<'_>`
+- Support for `impl FnOnce() -> impl core::fmt::Display`
+
+### Migration Guide
+
+1. Change resext version to 1.3.0 in your project's Cargo.toml
+2. Change `.context(FnOnce() -> impl Display)` and `.context(core::fmt::Arguments<'_>)` to `.context(ctx!())`, here's a command for refactoring your entire project you can run in your project root for format! and format_args! context:
+
+```bash
+find . -type f -name "*.rs" -exec sed -i -e '/^\/\/!/!{1s/^/use resext::ctx;\n/}' -e 's/\.context(\s*format_args!/.context(ctx!/g' -e 's/\.context(\s*||\s*format!/.context(ctx!/g' {} +
+```
+
+---
+
 ## v1.2.0 - 2026-03-02
 
 ### Added
