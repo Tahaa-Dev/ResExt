@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.3.1 - 2026-03-08
+
+### Fixed
+
+- Added docs for `ctx!()` macro
+
+---
+
 ## v1.3.0 - 2026-03-07
 
 ### Added
