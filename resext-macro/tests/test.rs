@@ -6,17 +6,17 @@ use alloc::string::ToString;
 use resext_macro::resext;
 
 // Temporary macro as usage in actual projects requires resext crate
+struct Writer<W: core::fmt::Write + ?Sized>(W);
+
+impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.0.write_str(s)
+    }
+}
+
 macro_rules! ctx {
     ($fmt:expr, $($args:tt)*) => {
         {
-            struct Writer<W: core::fmt::Write + ?Sized>(W);
-
-            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
-                fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                    self.0.write_str(s)
-                }
-            }
-
             |w, d, mp, ms| {
                 use core::fmt::Write;
 
@@ -34,14 +34,6 @@ macro_rules! ctx {
 
     ($fmt:expr) => {
         {
-            struct Writer<W: core::fmt::Write + ?Sized>(W);
-
-            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
-                fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                    self.0.write_str(s)
-                }
-            }
-
             |w, d, mp, ms| {
                 use core::fmt::Write;
 

@@ -151,6 +151,15 @@
 //!
 pub use resext_macro::resext;
 
+pub struct Writer<W: core::fmt::Write + ?Sized>(pub W);
+
+impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.0.write_str(s)
+    }
+}
+
 /// Creates a lazily-evaluated context message for use with `.context()`.
 ///
 /// Takes a format string and optional arguments identical to `write!` or `format_args!`,
@@ -199,18 +208,10 @@ pub use resext_macro::resext;
 macro_rules! ctx {
     ($fmt:expr, $($args:tt)*) => {
         {
-            struct Writer<W: core::fmt::Write + ?Sized>(W);
-
-            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
-                fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                    self.0.write_str(s)
-                }
-            }
-
             |w, d, mp, ms| {
                 use core::fmt::Write;
 
-                let mut w = Writer(w);
+                let mut w = $crate::Writer(w);
 
                 let _ = w.write_str(d);
                 let _ = w.write_str(mp);
@@ -224,18 +225,10 @@ macro_rules! ctx {
 
     ($fmt:expr) => {
         {
-            struct Writer<W: core::fmt::Write + ?Sized>(W);
-
-            impl<W: core::fmt::Write + ?Sized> core::fmt::Write for Writer<W> {
-                fn write_str(&mut self, s: &str) -> core::fmt::Result {
-                    self.0.write_str(s)
-                }
-            }
-
             |w, d, mp, ms| {
                 use core::fmt::Write;
 
-                let mut w = Writer(w);
+                let mut w = $crate::Writer(w);
 
                 let _ = w.write_str(d);
                 let _ = w.write_str(mp);
