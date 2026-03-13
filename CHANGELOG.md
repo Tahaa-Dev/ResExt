@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.3 - 2026-03-14
+
+### Removed
+
+- `Res!()` macro from generated items
+
+### Added
+
+- `ResErr::from_args()` method to generated items
+
+### Migration guide
+
+Use this command in your project's root after replacing \<ALIAS\> with your result type alias:
+
+**Note:** requires GNU sed (Linux default; macOS: `brew install gnu-sed` and use `gsed` instead of `sed`)
+
+```bash
+find . -type f -name "*.rs" -exec sed -i 's/<ALIAS>!(\([^,]*\?\),[\s\n\r]*\([^)]*\?\));/return Err(<ALIAS>Err::from_args(ctx!(\2), \1));/g' {} +
+```
+
+---
+
 ## v1.3.2 - 2026-03-13
 
 ### Improved
