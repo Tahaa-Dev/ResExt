@@ -75,19 +75,52 @@ enum MyError {
 - `buf_size` - Size for the context message byte buffer (default: 64)
 - `alloc` Enable heap-spilling if context exceeds `buf_size`
 
----
-
-## `.context()` Method
+### `.context()` Method
 
 Add static context to an error.
 
 Accepts `&str` or `ctx!()` macro which outputs a lazily evaluated closure with usage similar to old `format_args!()` API
 
-### Example
+#### Example
 
 ```rust
 std::fs::read("file.txt")
     .context("Failed to read file")?;
+```
+
+### `Res!` macro
+
+Generated macro for returning `Err()` results with context easily
+
+#### Example
+
+```rust
+use resext::resext;
+
+#[resext]
+enum MyError {
+    Io(std::io::Error),
+    Utf8(core::str::Utf8Error),
+}
+
+fn return_error(file_name: &str) -> Res<()> {
+    Res!(std::io::Error::other("I/O Error"), "Failed to read file: {}", file_name);
+}
+```
+
+### `ctx!()` macro
+
+Macro defined in `resext` crate that returns a lazily evaluated closure with similar usage to old `format_args!()` context API but with better performance
+
+- This macro shoudln't be used alone and should be used with `.context()` method instead
+
+#### Example
+
+```rust
+let path: &str = "file.txt";
+
+std::fs::read(path)
+    .context(ctx!("Failed to read file: {}", path))?;
 ```
 
 ---

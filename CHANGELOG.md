@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.3.2 - 2026-03-13
+
+### Improved
+
+- `ctx!` macro now doesn't generate a newtype struct wrapper on every call
+
+No changes to the public API
+
+---
+
 ## v1.3.1 - 2026-03-08
 
 ### Fixed

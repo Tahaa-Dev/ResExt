@@ -66,8 +66,10 @@ fn test_error_propagation() {
     fn temp() -> Resext<()> {
         let path = "non_existent";
 
-        let _ = core::str::from_utf8(&[0, 158, 22])
-            .context(ctx!("Failed to format file extension from bytes for path: {}", path))?;
+        let _ = core::str::from_utf8(&[0, 158, 22]).context(ctx!(
+            "Failed to format file extension from bytes for path: {}",
+            path
+        ))?;
 
         let _: Resext<()> = Err(286).context("Custom error")?;
 
@@ -87,7 +89,10 @@ fn test_error_propagation() {
         format_args!("{}", err1).to_string(),
         "Failed to format file extension from bytes for path: non_existent\nError: invalid utf-8 sequence of 1 bytes from index 1"
     );
-    assert_eq!(format_args!("{}", err2).to_string(), "Page not found: non_existent\nError: 404");
+    assert_eq!(
+        format_args!("{}", err2).to_string(),
+        "Page not found: non_existent\nError: 404"
+    );
 }
 
 #[test]
@@ -120,7 +125,8 @@ fn test_error_display_format() {
 
 #[test]
 fn test_error_debug_format() {
-    let result: Resext<_> = core::str::from_utf8(&[0, 158, 22]).context("Context message");
+    let result: Resext<_> =
+        core::str::from_utf8(&[0, 158, 22]).context("Context message");
 
     let err = result.unwrap_err();
     let debug_output = format_args!("{:?}", err).to_string();
@@ -135,7 +141,10 @@ fn test_new_method() {
     let res2 = ResextErr::new("Test constructor `new()` method", 429);
 
     assert_eq!(format_args!("{}", res).to_string(), "Error: 404");
-    assert_eq!(format_args!("{}", res2).to_string(), "Test constructor `new()` method\nError: 429");
+    assert_eq!(
+        format_args!("{}", res2).to_string(),
+        "Test constructor `new()` method\nError: 429"
+    );
 }
 
 mod isolated_test {

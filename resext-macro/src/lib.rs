@@ -32,8 +32,8 @@
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Data, DeriveInput, Error, Ident, LitBool, LitStr, parse::Parse, parse_macro_input,
-    spanned::Spanned,
+    Data, DeriveInput, Error, Ident, LitBool, LitStr, parse::Parse,
+    parse_macro_input, spanned::Spanned,
 };
 
 /// Generate error handling boilerplate for an enum.
@@ -148,9 +148,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
         _ => {
-            return Error::new(input.ident.span(), "`#[resext]` can only be applied to enums")
-                .to_compile_error()
-                .into();
+            return Error::new(
+                input.ident.span(),
+                "`#[resext]` can only be applied to enums",
+            )
+            .to_compile_error()
+            .into();
         }
     };
 
@@ -258,7 +261,8 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let msg_prefix = args.msg_prefix.unwrap_or_default();
     let msg_suffix = args.msg_suffix.unwrap_or_default();
     let delimiter = args.delimiter.unwrap_or_else(|| String::from("\n - "));
-    let source_prefix = args.source_prefix.unwrap_or_else(|| String::from("Error: "));
+    let source_prefix =
+        args.source_prefix.unwrap_or_else(|| String::from("Error: "));
     let buf_size = args.buf_size.unwrap_or(64);
 
     let export_macro = {
@@ -608,6 +612,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         /// # Examples
         ///
         /// ```rust,ignore
+        /// #[resext]
+        /// enum MyError {
+        ///     Io(std::io::Error),
+        ///     Utf8(core::str::Utf8Error),
+        /// }
+        ///
         /// fn return_error(file_name: &str) -> Res<()> {
         ///     Res!(std::io::Error::other("I/O Error"), "Failed to read file: {}", file_name);
         /// }
