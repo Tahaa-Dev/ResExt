@@ -76,22 +76,11 @@ fn test_error_propagation() {
         Ok(())
     }
 
-    fn temp2() -> Resext<()> {
-        let path = "non_existent";
-
-        Resext!(404, "Page not found: {}", path);
-    }
-
-    let err1 = temp().unwrap_err();
-    let err2 = temp2().unwrap_err();
+    let err = temp().unwrap_err();
 
     assert_eq!(
-        format_args!("{}", err1).to_string(),
+        format_args!("{}", err).to_string(),
         "Failed to format file extension from bytes for path: non_existent\nError: invalid utf-8 sequence of 1 bytes from index 1"
-    );
-    assert_eq!(
-        format_args!("{}", err2).to_string(),
-        "Page not found: non_existent\nError: 404"
     );
 }
 

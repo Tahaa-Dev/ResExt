@@ -20,7 +20,7 @@
 //!
 //! - `Display`, `Debug` and `Error` trait implementations
 //! - Wrapper struct with inline, zero-alloc context storage
-//! - Trait with context methods
+//! - Trait with context method
 //! - `From<E>` implementations for automatic conversion
 //! - Type alias for `Result<T, ResErr>`
 //!
@@ -264,18 +264,6 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
     let source_prefix =
         args.source_prefix.unwrap_or_else(|| String::from("Error: "));
     let buf_size = args.buf_size.unwrap_or(64);
-
-    let export_macro = {
-        match vis {
-            &syn::Visibility::Inherited => quote! {},
-
-            _ => {
-                quote! {
-                    #[macro_export]
-                }
-            }
-        }
-    };
 
     let gen_buf = {
         if !alloc {
@@ -605,44 +593,6 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 }
             }
-        }
-
-        /// Macro for returning `Err()` results with context easily
-        ///
-        /// # Examples
-        ///
-        /// ```rust,ignore
-        /// #[resext]
-        /// enum MyError {
-        ///     Io(std::io::Error),
-        ///     Utf8(core::str::Utf8Error),
-        /// }
-        ///
-        /// fn return_error(file_name: &str) -> Res<()> {
-        ///     Res!(std::io::Error::other("I/O Error"), "Failed to read file: {}", file_name);
-        /// }
-        /// ```
-        #[doc(hidden)]
-        #[allow(unused_macros)]
-        #export_macro
-        macro_rules! #alias {
-            ($src:expr, $fmt:expr, $($arg:tt)*) => {
-                {
-                    use core::fmt::Write;
-                    let mut buf = #buf_name::new();
-                    let _ = write!(&mut buf, "{}", format_args!($fmt, $($arg)*));
-                    return Err(#struct_name { msg: buf, source: #enum_name::from($src) });
-                }
-            };
-
-            ($src:expr, $msg:expr) => {
-                {
-                    use core::fmt::Write;
-                    let mut buf = #buf_name::new();
-                    let _ = write!(&mut buf "{}", format_args!($msg));
-                    return Err(#struct_name { msg: buf, source: #enum_name::from($src) });
-                }
-            };
         }
 
         #vis type #alias<T> = Result<T, #struct_name>;
