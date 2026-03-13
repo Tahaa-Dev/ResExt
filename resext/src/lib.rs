@@ -8,20 +8,18 @@
 //! ```rust
 //! use resext::resext;
 //!
-//! #[resext(alias = AppRes)]
-//! enum AppError {
+//! #[resext]
+//! enum ConfigError {
 //!     Io(std::io::Error),
-//!     Parse(std::num::ParseIntError),
+//!     Utf8(std::string::FromUtf8Error),
 //! }
 //!
-//! fn read_config() -> AppRes<String> {
-//!     let content = std::fs::read_to_string("config.toml")
-//!         .context("Failed to read config file")?;
+//! fn load_config(path: &str) -> Res<String> {
+//!     let content = std::fs::read(path)
+//!         .context("Failed to read config")?;
 //!     
-//!     let value: i32 = content.trim().parse::<i32>()
-//!         .context("Failed to parse config value")?;
-//!     
-//!     Ok(content)
+//!     std::string::String::from_utf8(content)
+//!         .context("Failed to parse config")
 //! }
 //! ```
 //!
@@ -101,23 +99,46 @@
 //!
 //! # Examples
 //!
-//! ## Basic Error Handling
+//! ## Error Handling
 //!
 //! ```rust
+//! use resext::ctx;
 //! use resext::resext;
 //!
-//! #[resext]
-//! enum ConfigError {
-//!     Io(std::io::Error),
-//!     Utf8(std::string::FromUtf8Error),
-//! }
+//! use std::io::{Error, ErrorKind};
 //!
-//! fn load_config(path: &str) -> Res<String> {
-//!     let content = std::fs::read(path)
-//!         .context("Failed to read config")?;
-//!     
-//!     std::string::String::from_utf8(content)
-//!         .context("Failed to parse config")
+//! #[resext]
+//! enum AppError {
+//!     Io(Error),
+//!     Parse(std::num::ParseIntError),
+//! }
+//! # trait Temp { fn from_args<F: FnOnce(ResErr, &str, &str, &str) -> ResErr>(msg: F, source: Error) -> ResErr; }
+//! # impl Temp for ResErr { fn from_args<F: FnOnce(ResErr, &str, &str, &str) -> ResErr>(msg: F, source: Error) -> ResErr { ResErr::new("", Error::other("")) } }
+//!
+//! fn read_config(path: &str) -> Res<String> {
+//!     let content: String = std::fs::read_to_string(path)
+//!         .context(ctx!("Failed to read file: {}", path))?;
+//!
+//!     if content.is_empty() {
+//!         return Err(ResErr::new(
+//!             "Content is is empty",
+//!             Error::new(ErrorKind::UnexpectedEof, "Data is empty"),
+//!         ));
+//!     }
+//!
+//!     let value = content
+//!         .trim()
+//!         .parse::<i32>()
+//!         .context(ctx!("Failed to parse config value: {}", &content))?;
+//!
+//!     if value < 32 {
+//!         return Err(ResErr::from_args(
+//!             ctx!("Value: {} is less than 32", value),
+//!             Error::new(ErrorKind::InvalidData, "Data is less than 32"),
+//!         ));
+//!     }
+//!
+//!     Ok(content)
 //! }
 //! ```
 //!

@@ -477,7 +477,7 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl #struct_name {
-            /// Helper method for constructing #struct_name without using `.context()`
+            /// Helper method for constructing `ResErr` structs without using `.context()`
             /// on a Result.
             ///
             /// # Examples
@@ -491,6 +491,26 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let mut buf = #buf_name::new();
                 let _ = buf.write_str(msg);
                 Self { msg: buf, source: #enum_name::from(source) }
+            }
+
+            /// Helper method for constructing `ResErr` structs without using `.context()`
+            /// on a Result.
+            ///
+            /// This method constructs `ResErr` structs using `ctx!()` macro for optimized, lazily
+            /// evaluated construction
+            ///
+            /// # Examples
+            ///
+            /// ```rust,ignore
+            /// ResErr::from_args(ctx!("Failed to read file: {}", &file_name), std::io::Error::other(""));
+            /// ```
+            #[doc(hidden)]
+            #vis fn from_args<E, F: FnOnce(#struct_name, &str, &str, &str) -> #struct_name>(msg: F, source: E) -> Self where #enum_name: From<E> {
+                use core::fmt::Write;
+
+                let err = Self { msg: #buf_name::new(), source: #enum_name::from(source) };
+
+                msg(err, "", "", "")
             }
         }
 
@@ -538,9 +558,12 @@ pub fn resext(attr: TokenStream, item: TokenStream) -> TokenStream {
                         use core::fmt::Write;
 
                         if err.msg.is_empty() {
-                            let _ = write!(&mut err, "{}", msg);
+                            let _ = err.write_str(msg);
                         } else {
-                            let _ = write!(&mut err, "{}{}{}{}", #delimiter, #msg_prefix, msg, #msg_suffix);
+                            let _ = err.write_str(#delimiter);
+                            let _ = err.write_str(#msg_prefix);
+                            let _ = err.write_str(msg);
+                            let _ = err.write_str(#msg_suffix);
                         }
 
                         Err(err)

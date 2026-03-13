@@ -29,22 +29,40 @@ resext = "1.0.0"
 ## Usage
 
 ```rust
-use resext::resext;
 use resext::ctx;
+use resext::resext;
+
+use std::io::{Error, ErrorKind};
 
 #[resext]
 enum AppError {
-    Io(std::io::Error),
+    Io(Error),
     Parse(std::num::ParseIntError),
 }
 
-fn read_config() -> Res<String> {
-    let content = std::fs::read_to_string("config.toml")
+fn read_config(path: &str) -> Res<String> {
+    let content: String = std::fs::read_to_string(path)
         .context(ctx!("Failed to read file: {}", path))?;
-    
-    let value: i32 = content.trim().parse()
+
+    if content.is_empty() {
+        return Err(ResErr::new(
+            "Content is is empty",
+            Error::new(ErrorKind::UnexpectedEof, "Data is empty"),
+        ));
+    }
+
+    let value = content
+        .trim()
+        .parse::<i32>()
         .context(ctx!("Failed to parse config value: {}", &content))?;
-    
+
+    if value < 32 {
+        return Err(ResErr::from_args(
+            ctx!("Value: {} is less than 32", value),
+            Error::new(ErrorKind::InvalidData, "Data is less than 32"),
+        ));
+    }
+
     Ok(content)
 }
 ```

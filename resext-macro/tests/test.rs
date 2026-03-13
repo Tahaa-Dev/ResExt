@@ -76,11 +76,26 @@ fn test_error_propagation() {
         Ok(())
     }
 
+    fn temp2() -> Resext<()> {
+        let code = 404;
+
+        Err(ResextErr::from_args(
+            ctx!("Failed to fetch page | StatusCode: {}", code),
+            code,
+        ))
+    }
+
     let err = temp().unwrap_err();
+    let err2 = temp2().unwrap_err();
 
     assert_eq!(
         format_args!("{}", err).to_string(),
         "Failed to format file extension from bytes for path: non_existent\nError: invalid utf-8 sequence of 1 bytes from index 1"
+    );
+
+    assert_eq!(
+        format_args!("{}", err2).to_string(),
+        "Failed to fetch page | StatusCode: 404\nError: 404"
     );
 }
 

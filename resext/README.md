@@ -88,26 +88,6 @@ std::fs::read("file.txt")
     .context("Failed to read file")?;
 ```
 
-### `Res!` macro
-
-Generated macro for returning `Err()` results with context easily
-
-#### Example
-
-```rust
-use resext::resext;
-
-#[resext]
-enum MyError {
-    Io(std::io::Error),
-    Utf8(core::str::Utf8Error),
-}
-
-fn return_error(file_name: &str) -> Res<()> {
-    Res!(std::io::Error::other("I/O Error"), "Failed to read file: {}", file_name);
-}
-```
-
 ### `ctx!()` macro
 
 Macro defined in `resext` crate that returns a lazily evaluated closure with similar usage to old `format_args!()` context API but with better performance
@@ -148,24 +128,44 @@ Error: Io: No such file or directory
 
 ## Examples
 
-### Basic Error Handling
+### Error Handling
 
 ```rust
-use resext::resext;
 use resext::ctx;
+use resext::resext;
+
+use std::io::{Error, ErrorKind};
 
 #[resext]
-enum ConfigError {
-    Io(std::io::Error),
-    Parse(toml::de::Error),
+enum AppError {
+    Io(Error),
+    Parse(std::num::ParseIntError),
 }
 
-fn load_config(path: &str) -> Res<Config> {
-    let content = std::fs::read_to_string(path)
-        .context("Failed to read config")?;
-    
-    toml::from_str(&content)
-        .context(ctx!("Failed to parse {}", path))
+fn read_config(path: &str) -> Res<String> {
+    let content: String = std::fs::read_to_string(path)
+        .context(ctx!("Failed to read file: {}", path))?;
+
+    if content.is_empty() {
+        return Err(ResErr::new(
+            "Content is is empty",
+            Error::new(ErrorKind::UnexpectedEof, "Data is empty"),
+        ));
+    }
+
+    let value = content
+        .trim()
+        .parse::<i32>()
+        .context(ctx!("Failed to parse config value: {}", &content))?;
+
+    if value < 32 {
+        return Err(ResErr::from_args(
+            ctx!("Value: {} is less than 32", value),
+            Error::new(ErrorKind::InvalidData, "Data is less than 32"),
+        ));
+    }
+
+    Ok(content)
 }
 ```
 
