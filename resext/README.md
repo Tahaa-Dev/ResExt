@@ -10,7 +10,7 @@ This is the primary interface for ResExt. It re-exports the proc-macro as well a
 
 ```toml
 [dependencies]
-resext = "1.0.0"
+resext = "1.3.3"
 ```
 
 ---
